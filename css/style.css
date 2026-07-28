@@ -1,0 +1,339 @@
+/* Toadz Crosser! — site styles */
+:root {
+  --bg: #0d1a12;
+  --panel: #14261a;
+  --lime: #78ff64;
+  --green: #32c850;
+  --dark-green: #1a7a2d;
+  --yellow: #ffdc32;
+  --road: #2d2d32;
+  --white: #f5fff5;
+  --muted: #9ab89a;
+  --red: #dc3232;
+  --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Consolas", "SF Mono", ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--white);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* ---- Landing ---- */
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background:
+    linear-gradient(180deg, #0d1a12 0%, #1a3020 40%, #0d1a12 100%);
+  overflow-x: hidden;
+}
+
+.hero {
+  width: 100%;
+  max-width: 720px;
+  padding: 2.5rem 1.25rem 3rem;
+  text-align: center;
+}
+
+.badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  border: 1px solid rgba(255, 220, 50, 0.35);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 220, 50, 0.08);
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.toad-icon {
+  width: 56px;
+  height: 56px;
+  animation: hop 1.2s ease-in-out infinite;
+}
+
+@keyframes hop {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-4px); }
+}
+
+h1 {
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--lime);
+  text-shadow: 0 0 40px rgba(120, 255, 100, 0.25), 3px 3px 0 var(--dark-green);
+  margin-bottom: 0.75rem;
+}
+
+.tagline {
+  font-size: 1.1rem;
+  color: var(--muted);
+  max-width: 28rem;
+  margin: 0 auto 1.75rem;
+}
+
+.road-strip {
+  height: 72px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 2rem;
+  background: var(--road);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.road-strip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--yellow) 0 20px,
+    transparent 20px 40px
+  );
+  transform: translateY(-50%);
+  animation: dash 1.2s linear infinite;
+}
+
+@keyframes dash {
+  to { background-position: 40px 0; }
+}
+
+.car {
+  position: absolute;
+  top: 12px;
+  width: 56px;
+  height: 22px;
+  border-radius: 5px;
+  animation: drive 4s linear infinite;
+}
+
+.car.c1 { left: -60px; background: #dc3232; animation-duration: 3.2s; }
+.car.c2 { top: 40px; left: -80px; background: #3c78dc; animation-duration: 4.5s; animation-delay: -1.5s; }
+
+@keyframes drive {
+  from { transform: translateX(0); }
+  to { transform: translateX(620px); }
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--lime);
+  color: #0a1a0c;
+  font-weight: 800;
+  font-size: 1.15rem;
+  text-decoration: none;
+  padding: 0.95rem 2.25rem;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--dark-green), 0 8px 24px rgba(120, 255, 100, 0.25);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--dark-green), 0 12px 28px rgba(120, 255, 100, 0.35);
+}
+
+.cta:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--dark-green);
+}
+
+.cta-secondary {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.cta-secondary:hover {
+  color: var(--lime);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: 640px;
+  margin: 2.5rem auto 0;
+  padding: 0 1.25rem;
+  text-align: left;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(120, 255, 100, 0.12);
+  border-radius: 12px;
+  padding: 1.1rem 1.15rem;
+}
+
+.card h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--yellow);
+  margin-bottom: 0.4rem;
+}
+
+.card p {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.footer {
+  margin-top: auto;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.footer a {
+  color: var(--lime);
+  text-decoration: none;
+}
+
+/* ---- Play page ---- */
+.play-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: #0a120e;
+  padding: 0.75rem;
+}
+
+.play-header {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.play-header h1 {
+  font-size: 1.15rem;
+  text-shadow: none;
+  margin: 0;
+}
+
+.play-header a {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.play-header a:hover {
+  color: var(--lime);
+}
+
+#game-wrap {
+  position: relative;
+  line-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+  max-width: 100%;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  background: #000;
+  touch-action: none;
+  image-rendering: pixelated;
+}
+
+.touch-pad {
+  display: none;
+  margin-top: 0.75rem;
+  width: 100%;
+  max-width: 280px;
+  user-select: none;
+}
+
+.touch-pad .row {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0.35rem 0;
+}
+
+.touch-pad button {
+  width: 64px;
+  height: 52px;
+  border: none;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--lime);
+  font-size: 1.4rem;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid rgba(120, 255, 100, 0.2);
+}
+
+.touch-pad button:active {
+  background: var(--dark-green);
+  color: white;
+}
+
+@media (max-width: 700px), (pointer: coarse) {
+  .touch-pad {
+    display: block;
+  }
+}
+
+.hints {
+  margin-top: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}

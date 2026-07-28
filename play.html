@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="description" content="Play Toadz Crosser! in your browser." />
+    <meta name="theme-color" content="#0a120e" />
+    <title>Play — Toadz Crosser!</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='36' r='18' fill='%2332c850'/%3E%3Ccircle cx='22' cy='22' r='8' fill='%2332c850'/%3E%3Ccircle cx='42' cy='22' r='8' fill='%2332c850'/%3E%3C/svg%3E" />
+  </head>
+  <body class="play-body">
+    <header class="play-header">
+      <h1>TOADZ CROSSER!</h1>
+      <a href="index.html">← Home</a>
+    </header>
+
+    <div id="game-wrap">
+      <canvas id="game" width="640" height="720" aria-label="Toadz Crosser game"></canvas>
+    </div>
+
+    <div class="touch-pad" aria-label="Touch controls">
+      <div class="row">
+        <button type="button" data-dir="up" aria-label="Hop up">▲</button>
+      </div>
+      <div class="row">
+        <button type="button" data-dir="left" aria-label="Hop left">◀</button>
+        <button type="button" data-dir="down" aria-label="Hop down">▼</button>
+        <button type="button" data-dir="right" aria-label="Hop right">▶</button>
+      </div>
+    </div>
+
+    <p class="hints">
+      ENTER / SPACE start · Arrows / WASD hop · ESC menu
+    </p>
+
+    <script src="js/game.js"></script>
+  </body>
+</html>
