@@ -22,7 +22,7 @@
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
 
-  // Toad palette (new look — olive + gold spots, cream belly, racing scarf)
+  // Toad palette — bright apple-green frog, freckles, pale belly
   const C = {
     ink: INK,
     white: "#fffdf8",
@@ -30,16 +30,13 @@
     sky: "#7ec8f5",
     skyDeep: "#4aa3e0",
     cloud: "#ffffff",
-    // New toad colors
-    green: "#6bc24a",
-    greenShade: "#3d8f2e",
-    greenDeep: "#2a6820",
-    olive: "#8fd45a",
-    spot: "#c8e86a",
-    belly: "#ffe9b0",
-    scarf: "#ff4b4b",
-    scarfShade: "#c02828",
-    glove: "#fffdf8",
+    green: "#4fd63a",
+    greenShade: "#2fa824",
+    greenDeep: "#1e7a18",
+    olive: "#62e04a",
+    spot: "#2a9a22",
+    belly: "#e8ffc8",
+    freckle: "#ffb0a0",
     yellow: "#ffe14a",
     orange: "#ff9a3c",
     red: "#ff4b4b",
@@ -58,8 +55,11 @@
     waterDeep: "#1e6fa0",
     hud: "#2a1f12",
     gray: "#8a8a92",
+    truckCab: "#3d4a5c",
+    truckBox: "#e8e4d8",
     signWood: "#c48a3a",
     signWoodDark: "#8a5a22",
+    signText: "#3a2810",
   };
 
   const GOAL_ROWS = new Set([1]);
@@ -457,22 +457,23 @@
     ctx.textBaseline = "alphabetic";
   }
 
-  // ========== CAR ==========
+  // ========== CAR / BOX TRUCK ==========
   class Car {
     constructor(row, direction, speed, color, lengthTiles) {
       this.row = row;
       this.direction = direction;
       this.speed = speed;
       this.color = color;
+      this.lengthTiles = lengthTiles;
+      this.isTruck = lengthTiles >= 3;
       this.length = lengthTiles * TILE;
-      this.height = Math.floor(TILE * 0.78);
+      this.height = Math.floor(TILE * (this.isTruck ? 0.88 : 0.78));
       this.x = direction > 0 ? -this.length - randInt(0, WIDTH) : WIDTH + randInt(0, WIDTH);
       this.y = row * TILE + (TILE - this.height) / 2;
       this.whooshed = false;
     }
     update() {
       this.x += this.direction * this.speed;
-      // Whoosh when near center of screen
       const mid = this.x + this.length / 2;
       if (!this.whooshed && mid > WIDTH * 0.35 && mid < WIDTH * 0.65) {
         this.whooshed = true;
@@ -490,6 +491,10 @@
       return { x: this.x, y: this.y, w: this.length, h: this.height };
     }
     draw() {
+      if (this.isTruck) this.drawTruck();
+      else this.drawSedan();
+    }
+    drawSedan() {
       const r = this.rect();
       const dir = this.direction;
       const shade = shadeColor(this.color, 0.28);
@@ -516,6 +521,87 @@
         fillCircle(wx2, wy2, 7, C.ink);
         fillCircle(wx2, wy2, 3.5, C.gray);
         strokeCircle(wx2, wy2, 7, 2);
+      });
+    }
+    drawTruck() {
+      // Delivery box truck: cab + tall cargo box
+      const r = this.rect();
+      const dir = this.direction;
+      const boxColor = this.color;
+      const boxShade = shadeColor(boxColor, 0.25);
+      const cabColor = C.truckCab;
+      const cabW = Math.max(28, r.w * 0.28);
+      const boxW = r.w - cabW + 4;
+
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = C.ink;
+      ctx.beginPath();
+      ctx.ellipse(r.x + r.w / 2, r.y + r.h + 2, r.w * 0.45, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Cargo box (tall, flat front)
+      let boxX, cabX;
+      if (dir > 0) {
+        boxX = r.x;
+        cabX = r.x + boxW - 4;
+      } else {
+        cabX = r.x;
+        boxX = r.x + cabW - 4;
+      }
+      // Box body sits a bit higher
+      celRoundRect(boxX, r.y - 2, boxW, r.h + 2, 4, boxColor, boxShade);
+      // Panel lines on box
+      setInk(2);
+      ctx.strokeStyle = C.ink;
+      ctx.globalAlpha = 0.35;
+      for (let i = 1; i < 3; i++) {
+        const lx = boxX + (boxW * i) / 3;
+        ctx.beginPath();
+        ctx.moveTo(lx, r.y + 2);
+        ctx.lineTo(lx, r.y + r.h - 4);
+        ctx.stroke();
+      }
+      // Horizontal belt line
+      ctx.beginPath();
+      ctx.moveTo(boxX + 4, r.y + r.h * 0.45);
+      ctx.lineTo(boxX + boxW - 4, r.y + r.h * 0.45);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // Cab
+      celRoundRect(cabX, r.y + 6, cabW, r.h - 6, 6, cabColor, shadeColor(cabColor, 0.3));
+      // Windshield
+      const winW = cabW * 0.45;
+      const wx = dir > 0 ? cabX + cabW - winW - 4 : cabX + 4;
+      celRoundRect(wx, r.y + 10, winW, r.h * 0.4, 3, "#9fe0ff", "#4aa3e0");
+      // Headlights on cab
+      const hx = dir > 0 ? cabX + cabW - 5 : cabX + 5;
+      fillCircle(hx, r.y + r.h * 0.55, 3.5, C.yellow);
+      strokeCircle(hx, r.y + r.h * 0.55, 3.5, 2);
+      fillCircle(hx, r.y + r.h * 0.78, 3.5, C.yellow);
+      strokeCircle(hx, r.y + r.h * 0.78, 3.5, 2);
+
+      // Rear door lines on box (opposite cab)
+      const doorX = dir > 0 ? boxX + 3 : boxX + boxW - 10;
+      setInk(2);
+      ctx.strokeStyle = C.ink;
+      ctx.strokeRect(doorX, r.y + 4, 8, r.h - 10);
+      // Little brand stripe
+      ctx.fillStyle = C.yellow;
+      ctx.fillRect(boxX + boxW * 0.25, r.y + 6, boxW * 0.5, 5);
+      setInk(1.5);
+      ctx.strokeRect(boxX + boxW * 0.25, r.y + 6, boxW * 0.5, 5);
+
+      // Wheels (3 for truck)
+      const wy = r.y + r.h - 1;
+      const wheels = dir > 0
+        ? [r.x + 14, r.x + r.w * 0.45, r.x + r.w - 16]
+        : [r.x + 16, r.x + r.w * 0.55, r.x + r.w - 14];
+      wheels.forEach((wx2) => {
+        fillCircle(wx2, wy, 7, C.ink);
+        fillCircle(wx2, wy, 3.5, C.gray);
+        strokeCircle(wx2, wy, 7, 2);
       });
     }
   }
@@ -589,18 +675,17 @@
 
       if (this.squash > 0) {
         const pop = Math.sin((this.squash / 40) * Math.PI) * 4;
-        celEllipse(cx, cy + 4, 24 + pop, 7, C.greenShade, C.greenDeep);
-        celEllipse(cx, cy + 4, 14, 4, C.red, C.redShade);
-        // X eyes + scarf remnant
+        celEllipse(cx, cy + 4, 22 + pop, 8, C.greenShade, C.greenDeep);
+        celEllipse(cx, cy + 4, 12, 4, C.red, C.redShade);
         setInk(3);
         ctx.beginPath();
-        ctx.moveTo(cx - 12, cy - 4);
+        ctx.moveTo(cx - 10, cy - 2);
         ctx.lineTo(cx - 4, cy + 4);
-        ctx.moveTo(cx - 4, cy - 4);
-        ctx.lineTo(cx - 12, cy + 4);
-        ctx.moveTo(cx + 4, cy - 4);
-        ctx.lineTo(cx + 12, cy + 4);
-        ctx.moveTo(cx + 12, cy - 4);
+        ctx.moveTo(cx - 4, cy - 2);
+        ctx.lineTo(cx - 10, cy + 4);
+        ctx.moveTo(cx + 4, cy - 2);
+        ctx.lineTo(cx + 10, cy + 4);
+        ctx.moveTo(cx + 10, cy - 2);
         ctx.lineTo(cx + 4, cy + 4);
         ctx.stroke();
         return;
@@ -611,173 +696,119 @@
       let stretchX = 1;
       if (this.hopTimer > 0) {
         const wave = Math.sin(hopT * Math.PI);
-        stretchY = 1 + 0.55 * wave;
-        stretchX = 1 - 0.35 * wave;
+        stretchY = 1 + 0.5 * wave;
+        stretchX = 1 - 0.32 * wave;
         if (hopT > 0.85) {
-          stretchY = 0.55;
-          stretchX = 1.45;
+          stretchY = 0.6;
+          stretchX = 1.4;
         } else if (hopT < 0.15) {
-          stretchY = 0.7;
-          stretchX = 1.25;
+          stretchY = 0.72;
+          stretchX = 1.22;
         }
       } else if (this.home) {
-        // Victory bounce
-        stretchY = 1 + Math.sin(this.celebrate * 0.25) * 0.12;
-        stretchX = 1 - Math.sin(this.celebrate * 0.25) * 0.06;
+        stretchY = 1 + Math.sin(this.celebrate * 0.25) * 0.1;
+        stretchX = 1 - Math.sin(this.celebrate * 0.25) * 0.05;
       } else {
-        stretchY = 1 + Math.sin(this.wobble) * 0.04;
-        stretchX = 1 + Math.cos(this.wobble * 1.3) * 0.03;
+        stretchY = 1 + Math.sin(this.wobble) * 0.035;
+        stretchX = 1 + Math.cos(this.wobble * 1.3) * 0.025;
       }
 
-      const bodyW = 14 * stretchX;
-      const bodyH = 12 * stretchY;
-      const wobX = Math.sin(this.wobble * 2) * (this.hopTimer > 0 ? 2.5 : 0.6);
-      const limbFlail = this.hopTimer > 0 ? Math.sin(this.limbPhase) * 10 : Math.sin(this.wobble) * 2;
-      const legReach = this.hopTimer > 0 ? 6 + Math.abs(limbFlail) * 0.4 : 0;
+      const bodyW = 13 * stretchX;
+      const bodyH = 11 * stretchY;
+      const wobX = Math.sin(this.wobble * 2) * (this.hopTimer > 0 ? 2 : 0.5);
+      const limbFlail = this.hopTimer > 0 ? Math.sin(this.limbPhase) * 8 : Math.sin(this.wobble) * 1.5;
 
       // Shadow
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = C.ink;
       ctx.beginPath();
-      ctx.ellipse(cx, cy + 17, bodyW * 0.95, 4 / stretchY, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy + 15, bodyW * 0.9, 3.5 / stretchY, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      // Big cartoon feet (white gloves style toes)
+      // Webbed back feet
       if (this.facing === 0 || this.facing === 2) {
-        // Back legs olive
-        celEllipse(cx - 15 - limbFlail * 0.3, cy + 10 + legReach * 0.25, 9, 6, C.greenShade, C.greenDeep);
-        celEllipse(cx + 15 + limbFlail * 0.3, cy + 10 + legReach * 0.25, 9, 6, C.greenShade, C.greenDeep);
-        // Stretch limbs
-        setInk(6);
-        ctx.strokeStyle = C.olive;
-        ctx.beginPath();
-        ctx.moveTo(cx - 5, cy + 5);
-        ctx.quadraticCurveTo(cx - 18 - limbFlail, cy + 4, cx - 15, cy + 10);
-        ctx.moveTo(cx + 5, cy + 5);
-        ctx.quadraticCurveTo(cx + 18 + limbFlail, cy + 4, cx + 15, cy + 10);
-        ctx.stroke();
-        setInk(3);
-        ctx.strokeStyle = C.ink;
-        ctx.beginPath();
-        ctx.moveTo(cx - 5, cy + 5);
-        ctx.quadraticCurveTo(cx - 18 - limbFlail, cy + 4, cx - 15, cy + 10);
-        ctx.moveTo(cx + 5, cy + 5);
-        ctx.quadraticCurveTo(cx + 18 + limbFlail, cy + 4, cx + 15, cy + 10);
-        ctx.stroke();
-        // White glove hands
-        celCircle(cx - 12 + limbFlail * 0.2, cy - 2 - legReach * 0.15, 6, C.glove, null);
-        celCircle(cx + 12 - limbFlail * 0.2, cy - 2 - legReach * 0.15, 6, C.glove, null);
+        // Left foot
+        celEllipse(cx - 12 + limbFlail * 0.2, cy + 11, 8, 5, C.greenShade, C.greenDeep);
+        // toes
+        fillCircle(cx - 18 + limbFlail * 0.2, cy + 12, 2.5, C.greenShade);
+        fillCircle(cx - 14 + limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
+        fillCircle(cx - 10 + limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
+        setInk(1.5);
+        strokeCircle(cx - 18 + limbFlail * 0.2, cy + 12, 2.5, 1.5);
+        strokeCircle(cx - 14 + limbFlail * 0.2, cy + 14, 2.5, 1.5);
+        strokeCircle(cx - 10 + limbFlail * 0.2, cy + 14, 2.5, 1.5);
+        // Right foot
+        celEllipse(cx + 12 - limbFlail * 0.2, cy + 11, 8, 5, C.greenShade, C.greenDeep);
+        fillCircle(cx + 18 - limbFlail * 0.2, cy + 12, 2.5, C.greenShade);
+        fillCircle(cx + 14 - limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
+        fillCircle(cx + 10 - limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
+        strokeCircle(cx + 18 - limbFlail * 0.2, cy + 12, 2.5, 1.5);
+        strokeCircle(cx + 14 - limbFlail * 0.2, cy + 14, 2.5, 1.5);
+        strokeCircle(cx + 10 - limbFlail * 0.2, cy + 14, 2.5, 1.5);
+        // Front hands (small pads)
+        celEllipse(cx - 10, cy + 2 - limbFlail * 0.1, 5, 4, C.green, C.greenShade);
+        celEllipse(cx + 10, cy + 2 - limbFlail * 0.1, 5, 4, C.green, C.greenShade);
       } else {
-        celEllipse(cx - 2, cy - 14, 6, 8, C.greenShade, C.greenDeep);
-        celEllipse(cx - 2, cy + 14, 6, 8, C.greenShade, C.greenDeep);
-        celCircle(cx + 11, cy - 10, 6, C.glove, null);
-        celCircle(cx + 11, cy + 10, 6, C.glove, null);
+        celEllipse(cx - 2, cy - 12, 5, 7, C.greenShade, C.greenDeep);
+        celEllipse(cx - 2, cy + 12, 5, 7, C.greenShade, C.greenDeep);
+        celEllipse(cx + 10, cy - 8, 5, 4, C.green, C.greenShade);
+        celEllipse(cx + 10, cy + 8, 5, 4, C.green, C.greenShade);
       }
 
-      // Rounder pear body
-      celEllipse(cx + wobX, cy + 3, bodyW, bodyH, C.olive, C.greenShade);
-      // Gold spots
-      fillCircle(cx + wobX - 6, cy + 1, 3.2, C.spot);
-      fillCircle(cx + wobX + 7, cy + 5, 2.6, C.spot);
-      fillCircle(cx + wobX + 2, cy - 2, 2.2, C.spot);
-      setInk(1.5);
-      strokeCircle(cx + wobX - 6, cy + 1, 3.2, 1.5);
-      strokeCircle(cx + wobX + 7, cy + 5, 2.6, 1.5);
-      // Cream belly
-      celEllipse(cx + wobX, cy + 7, bodyW * 0.5, bodyH * 0.42, C.belly, null);
+      // Round apple body
+      celEllipse(cx + wobX, cy + 1, bodyW, bodyH, C.olive, C.greenShade);
+      // Dark freckle spots
+      fillCircle(cx + wobX - 5, cy - 1, 2.2, C.spot);
+      fillCircle(cx + wobX + 6, cy + 3, 1.8, C.spot);
+      fillCircle(cx + wobX + 1, cy + 6, 1.5, C.spot);
+      // Pale belly oval
+      celEllipse(cx + wobX, cy + 5, bodyW * 0.48, bodyH * 0.4, C.belly, null);
 
-      // Racing scarf
-      ctx.fillStyle = C.scarf;
-      setInk(2.5);
-      ctx.beginPath();
-      ctx.moveTo(cx + wobX - 10, cy - 2);
-      ctx.quadraticCurveTo(cx + wobX, cy + 2, cx + wobX + 10, cy - 2);
-      ctx.quadraticCurveTo(cx + wobX + 12, cy + 6, cx + wobX + 4, cy + 5);
-      ctx.quadraticCurveTo(cx + wobX, cy + 3, cx + wobX - 4, cy + 5);
-      ctx.quadraticCurveTo(cx + wobX - 12, cy + 6, cx + wobX - 10, cy - 2);
-      ctx.fill();
-      ctx.stroke();
-      // Scarf tails flapping
-      const flap = Math.sin(this.wobble * 3 + this.celebrate * 0.2) * 4;
-      ctx.fillStyle = C.scarfShade;
-      ctx.beginPath();
-      ctx.moveTo(cx + wobX + 6, cy + 2);
-      ctx.lineTo(cx + wobX + 18 + flap, cy + 8);
-      ctx.lineTo(cx + wobX + 8, cy + 6);
-      ctx.closePath();
-      ctx.fill();
-      setInk(2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(cx + wobX + 5, cy + 4);
-      ctx.lineTo(cx + wobX + 16 + flap * 0.7, cy + 14);
-      ctx.lineTo(cx + wobX + 6, cy + 7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      // Head blob fused with body (no stalks) — face sits on upper body
+      const headY = cy - 6 - (stretchY - 1) * 4;
+      celEllipse(cx + wobX, headY, bodyW * 0.78, bodyH * 0.62, C.olive, C.greenShade);
 
-      // Bigger head dome
-      celEllipse(cx + wobX, cy - 8 - (stretchY - 1) * 5, bodyW * 0.85, bodyH * 0.75, C.olive, C.greenShade);
-
-      // Eye stalks — tall classic cartoon
-      const eyeLag = this.hopTimer > 0 ? -this.dcol * 2 : 0;
-      const eyeY = cy - 16 - (stretchY - 1) * 8;
+      // Eyes on face — big, side-by-side
+      const eyeLag = this.hopTimer > 0 ? -this.dcol * 1.5 : 0;
       const eyes = [
-        [cx + wobX - 9 + eyeLag, eyeY],
-        [cx + wobX + 9 + eyeLag, eyeY],
+        [cx + wobX - 7 + eyeLag, headY - 2],
+        [cx + wobX + 7 + eyeLag, headY - 2],
       ];
       for (const [ex, ey] of eyes) {
-        // stalk
-        setInk(4);
-        ctx.strokeStyle = C.olive;
+        celCircle(ex, ey, 7, C.white, null);
+        // thick lid line on top
+        setInk(2.5);
         ctx.beginPath();
-        ctx.moveTo(cx + wobX, cy - 6);
-        ctx.lineTo(ex, ey + 4);
+        ctx.arc(ex, ey, 7, Math.PI + 0.3, -0.3);
         ctx.stroke();
-        setInk(2);
-        ctx.strokeStyle = C.ink;
-        ctx.beginPath();
-        ctx.moveTo(cx + wobX, cy - 6);
-        ctx.lineTo(ex, ey + 4);
-        ctx.stroke();
-        // big round eyes
-        celCircle(ex, ey, 9, C.olive, C.greenShade);
-        celCircle(ex, ey, 6.5, C.white, null);
-        // pupils look in hop direction
-        fillCircle(ex + this.dcol * 1.5, ey + this.drow * 1.5 + 1, 3, C.ink);
-        fillCircle(ex + this.dcol * 1.5 + 1.2, ey + this.drow * 1.5, 1.1, C.white);
+        fillCircle(ex + this.dcol, ey + this.drow + 1, 3.2, C.ink);
+        fillCircle(ex + this.dcol + 1.1, ey + this.drow, 1.1, C.white);
       }
 
-      // Wide grin
+      // Nostrils
+      fillCircle(cx + wobX - 2, headY + 4, 1.2, C.greenDeep);
+      fillCircle(cx + wobX + 2, headY + 4, 1.2, C.greenDeep);
+
+      // Big smile
       setInk(2.5);
       ctx.beginPath();
-      ctx.arc(cx + wobX, cy - 2, 7, 0.15, Math.PI - 0.15);
+      ctx.arc(cx + wobX, headY + 5, 6.5, 0.2, Math.PI - 0.2);
       ctx.stroke();
-      // Tiny teeth
-      ctx.fillStyle = C.white;
-      ctx.fillRect(cx + wobX - 3, cy - 1, 2.5, 3);
-      ctx.fillRect(cx + wobX + 1, cy - 1, 2.5, 3);
-      setInk(1.5);
-      ctx.strokeRect(cx + wobX - 3, cy - 1, 2.5, 3);
-      ctx.strokeRect(cx + wobX + 1, cy - 1, 2.5, 3);
 
-      // Blush
-      ctx.globalAlpha = 0.5;
-      fillCircle(cx + wobX - bodyW * 0.65, cy + 1, 3.5, C.pink);
-      fillCircle(cx + wobX + bodyW * 0.65, cy + 1, 3.5, C.pink);
+      // Cheek freckles
+      ctx.globalAlpha = 0.55;
+      fillCircle(cx + wobX - bodyW * 0.55, headY + 3, 2.8, C.freckle);
+      fillCircle(cx + wobX + bodyW * 0.55, headY + 3, 2.8, C.freckle);
       ctx.globalAlpha = 1;
 
-      // Victory sparkles when home
       if (this.home) {
         const sp = this.celebrate;
         for (let i = 0; i < 5; i++) {
           const a = sp * 0.15 + i * 1.2;
-          const sx = cx + Math.cos(a) * 28;
-          const sy = cy - 10 + Math.sin(a * 1.3) * 16;
           ctx.fillStyle = i % 2 ? C.yellow : C.white;
           ctx.font = "14px sans-serif";
-          ctx.fillText("✦", sx, sy);
+          ctx.fillText("✦", cx + Math.cos(a) * 26, cy - 12 + Math.sin(a * 1.3) * 14);
         }
       }
     }
@@ -1126,16 +1157,16 @@
     ctx.strokeText("LEVEL " + nextLevel, cx, cy + 5);
     ctx.fillText("LEVEL " + nextLevel, cx, cy + 5);
 
-    ctx.font = "bold 16px Nunito, sans-serif";
-    ctx.lineWidth = 3;
-    ctx.fillStyle = C.ink;
-    ctx.strokeText("Bonus +" + madeItBonus + "  ·  Lives refilled!", cx, cy + 40);
+    // Thin, readable body copy (no heavy outline)
+    ctx.font = "600 15px Nunito, sans-serif";
+    ctx.lineWidth = 0;
+    ctx.fillStyle = C.signText;
     ctx.fillText("Bonus +" + madeItBonus + "  ·  Lives refilled!", cx, cy + 40);
 
-    // Prompt pulse
-    const blink = 0.65 + Math.sin(pulse * 3) * 0.35;
+    // Prompt pulse — thin readable text
+    const blink = 0.7 + Math.sin(pulse * 3) * 0.3;
     ctx.globalAlpha = blink;
-    ctx.font = "bold 15px Nunito, sans-serif";
+    ctx.font = "600 14px Nunito, sans-serif";
     ctx.fillStyle = C.blueShade;
     ctx.fillText("ENTER / SPACE / TAP  —  start Level " + nextLevel, cx, cy + 78);
     ctx.globalAlpha = 1;
@@ -1198,11 +1229,15 @@
     ctx.fillStyle = C.olive;
     ctx.fillText("TOADZ CROSSER!", WIDTH / 2, 100);
 
-    ctx.font = "bold 15px Nunito, sans-serif";
-    ctx.lineWidth = 4;
-    ctx.fillStyle = C.cream;
-    ctx.strokeText("Ribbit · dodge traffic · reach a pad!", WIDTH / 2, 145);
-    ctx.fillText("Ribbit · dodge traffic · reach a pad!", WIDTH / 2, 145);
+    ctx.font = "600 15px Nunito, sans-serif";
+    ctx.lineWidth = 0;
+    ctx.fillStyle = C.signText;
+    // Soft cream plate behind subtitle for contrast
+    const sub = "Ribbit · dodge traffic · reach a pad!";
+    const tw = ctx.measureText(sub).width + 24;
+    celRoundRect(WIDTH / 2 - tw / 2, 128, tw, 28, 10, C.cream, null);
+    ctx.fillStyle = C.signText;
+    ctx.fillText(sub, WIDTH / 2, 147);
 
     const tips = [
       "ARROWS / WASD  —  hop (ribbit!)",
