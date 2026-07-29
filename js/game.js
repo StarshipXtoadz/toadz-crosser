@@ -1,6 +1,6 @@
 /**
- * Toadz Crosser! — classic American 2D cartoon / cel-shaded browser game
- * Rubber-hose hops, speed lines, POW! hits. One pad = next level + full lives.
+ * Toadz Crosser! — cel cartoon hopper
+ * New toad look · ribbit/POW/traffic audio · YOU MADE IT! pad pause
  */
 (function () {
   "use strict";
@@ -15,13 +15,13 @@
   const COLS = WIDTH / TILE;
   const INK = "#1a1208";
   const MAX_LIVES = 5;
-  // Level 1 is easy; each level multiplies car speed a bit more
   const L1_SPEED = 0.42;
   const SPEED_PER_LEVEL = 0.13;
 
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
 
+  // Toad palette (new look — olive + gold spots, cream belly, racing scarf)
   const C = {
     ink: INK,
     white: "#fffdf8",
@@ -29,10 +29,16 @@
     sky: "#7ec8f5",
     skyDeep: "#4aa3e0",
     cloud: "#ffffff",
-    green: "#58d83a",
-    greenShade: "#3aa32e",
-    greenDeep: "#2a7a22",
-    belly: "#c8ff8a",
+    // New toad colors
+    green: "#6bc24a",
+    greenShade: "#3d8f2e",
+    greenDeep: "#2a6820",
+    olive: "#8fd45a",
+    spot: "#c8e86a",
+    belly: "#ffe9b0",
+    scarf: "#ff4b4b",
+    scarfShade: "#c02828",
+    glove: "#fffdf8",
     yellow: "#ffe14a",
     orange: "#ff9a3c",
     red: "#ff4b4b",
@@ -51,13 +57,14 @@
     waterDeep: "#1e6fa0",
     hud: "#2a1f12",
     gray: "#8a8a92",
+    signWood: "#c48a3a",
+    signWoodDark: "#8a5a22",
   };
 
   const GOAL_ROWS = new Set([1]);
   const MEDIAN_ROWS = new Set([8]);
   const START_ROWS = new Set([16]);
 
-  // Base speeds are modest; difficulty mult makes L1 slow and later levels zippy
   const ROAD_LANES = [
     { row: 2, dir: 1, speed: 1.15, colors: ["#ff4b4b", "#4d8fff", "#ffe14a"] },
     { row: 3, dir: -1, speed: 1.35, colors: ["#58d83a", "#ff6ad5", "#ff9a3c"] },
@@ -74,7 +81,6 @@
     { row: 15, dir: 1, speed: 1.1, colors: ["#c04040", "#4040c0", "#40a040"] },
   ];
   const ROAD_ROW_SET = new Set(ROAD_LANES.map((l) => l.row));
-
   const POW_WORDS = ["POW!", "BAM!", "SPLAT!", "OOF!", "WHAM!", "BONK!"];
 
   function rand(a, b) {
@@ -86,40 +92,203 @@
   function pick(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
-
   function levelSpeedMult() {
     return L1_SPEED + (level - 1) * SPEED_PER_LEVEL;
   }
-
   function carsPerLane() {
-    // Sparse traffic early, denser later
     if (level <= 2) return randInt(2, 3);
     if (level <= 5) return randInt(3, 4);
     return randInt(3, 5);
   }
 
-  // --- Drawing helpers ---
+  // ========== AUDIO (Web Audio API — no files needed) ==========
+  let audioCtx = null;
+  let masterGain = null;
+  let trafficNodes = null;
+  let audioReady = false;
+  let trafficOn = false;
+
+  function ensureAudio() {
+    if (audioReady) return true;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      audioCtx = new AC();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.55;
+      masterGain.connect(audioCtx.destination);
+      audioReady = true;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function resumeAudio() {
+    if (!ensureAudio()) return;
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  function playRibbit() {
+    if (!ensureAudio()) return;
+    resumeAudio();
+    const t0 = audioCtx.currentTime;
+    // Two-note cartoon ribbit
+    [0, 0.07].forEach((delay, i) => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      const f = audioCtx.createBiquadFilter();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(i === 0 ? 280 : 360, t0 + delay);
+      osc.frequency.exponentialRampToValueAtTime(i === 0 ? 180 : 220, t0 + delay + 0.12);
+      f.type = "bandpass";
+      f.frequency.value = 500;
+      f.Q.value = 2;
+      g.gain.setValueAtTime(0.0001, t0 + delay);
+      g.gain.exponentialRampToValueAtTime(0.22, t0 + delay + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + delay + 0.14);
+      osc.connect(f);
+      f.connect(g);
+      g.connect(masterGain);
+      osc.start(t0 + delay);
+      osc.stop(t0 + delay + 0.16);
+    });
+  }
+
+  function playPow() {
+    if (!ensureAudio()) return;
+    resumeAudio();
+    const t0 = audioCtx.currentTime;
+    // Noise thump
+    const bufferSize = audioCtx.sampleRate * 0.25;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2.5);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const ng = audioCtx.createGain();
+    const nf = audioCtx.createBiquadFilter();
+    nf.type = "lowpass";
+    nf.frequency.setValueAtTime(1200, t0);
+    nf.frequency.exponentialRampToValueAtTime(200, t0 + 0.2);
+    ng.gain.setValueAtTime(0.5, t0);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25);
+    noise.connect(nf);
+    nf.connect(ng);
+    ng.connect(masterGain);
+    noise.start(t0);
+    // Impact tone
+    const osc = audioCtx.createOscillator();
+    const og = audioCtx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(120, t0);
+    osc.frequency.exponentialRampToValueAtTime(40, t0 + 0.18);
+    og.gain.setValueAtTime(0.35, t0);
+    og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+    osc.connect(og);
+    og.connect(masterGain);
+    osc.start(t0);
+    osc.stop(t0 + 0.22);
+  }
+
+  function playSuccess() {
+    if (!ensureAudio()) return;
+    resumeAudio();
+    const t0 = audioCtx.currentTime;
+    [523, 659, 784, 1046].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t0 + i * 0.1);
+      g.gain.exponentialRampToValueAtTime(0.18, t0 + i * 0.1 + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.1 + 0.28);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(t0 + i * 0.1);
+      osc.stop(t0 + i * 0.1 + 0.3);
+    });
+  }
+
+  function startTrafficAmbience() {
+    if (!ensureAudio() || trafficOn) return;
+    resumeAudio();
+    trafficOn = true;
+    // Soft road rumble
+    const bufferSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    noise.loop = true;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 180;
+    filter.Q.value = 0.7;
+    const g = audioCtx.createGain();
+    g.gain.value = 0.045;
+    noise.connect(filter);
+    filter.connect(g);
+    g.connect(masterGain);
+    noise.start();
+    trafficNodes = { noise, g, filter, whooshTimer: 0 };
+  }
+
+  function stopTrafficAmbience() {
+    if (!trafficOn || !trafficNodes) return;
+    try {
+      trafficNodes.noise.stop();
+    } catch (e) {}
+    trafficNodes = null;
+    trafficOn = false;
+  }
+
+  function playCarWhoosh() {
+    if (!ensureAudio() || !trafficOn) return;
+    resumeAudio();
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    const f = audioCtx.createBiquadFilter();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(90, t0);
+    osc.frequency.exponentialRampToValueAtTime(160, t0 + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(70, t0 + 0.45);
+    f.type = "bandpass";
+    f.frequency.value = 400;
+    f.Q.value = 0.8;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    osc.connect(f);
+    f.connect(g);
+    g.connect(masterGain);
+    osc.start(t0);
+    osc.stop(t0 + 0.52);
+  }
+
+  // ========== DRAW HELPERS ==========
   function setInk(width) {
     ctx.strokeStyle = C.ink;
     ctx.lineWidth = width || 3;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
   }
-
   function fillCircle(x, y, r, fill) {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fillStyle = fill;
     ctx.fill();
   }
-
   function strokeCircle(x, y, r, w) {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     setInk(w || 3);
     ctx.stroke();
   }
-
   function celCircle(x, y, r, fill, shade) {
     fillCircle(x, y, r, fill);
     if (shade) {
@@ -135,7 +304,6 @@
     }
     strokeCircle(x, y, r, 3);
   }
-
   function celEllipse(x, y, rx, ry, fill, shade) {
     ctx.beginPath();
     ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
@@ -156,7 +324,6 @@
     setInk(3);
     ctx.stroke();
   }
-
   function roundPath(x, y, w, h, rad) {
     const r = Math.min(rad, w / 2, h / 2);
     ctx.beginPath();
@@ -167,7 +334,6 @@
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
-
   function celRoundRect(x, y, w, h, rad, fill, shade) {
     roundPath(x, y, w, h, rad);
     ctx.fillStyle = fill;
@@ -185,7 +351,6 @@
     setInk(3);
     ctx.stroke();
   }
-
   function drawCloud(x, y, s) {
     fillCircle(x, y, 14 * s, C.cloud);
     fillCircle(x + 16 * s, y - 4 * s, 18 * s, C.cloud);
@@ -195,7 +360,6 @@
     strokeCircle(x + 16 * s, y - 4 * s, 18 * s, 2.5);
     strokeCircle(x + 34 * s, y, 13 * s, 2.5);
   }
-
   function shadeColor(hex, amount) {
     if (!hex || hex[0] !== "#") return hex;
     const n = parseInt(hex.slice(1), 16);
@@ -208,47 +372,38 @@
     return "rgb(" + r + "," + g + "," + b + ")";
   }
 
-  // --- FX: POW bubbles + hop speed lines ---
+  // ========== FX ==========
   let fxList = [];
-
   function spawnPow(x, y, word) {
     fxList.push({
       kind: "pow",
-      x: x,
-      y: y,
+      x, y,
       text: word || pick(POW_WORDS),
-      life: 48,
-      max: 48,
+      life: 48, max: 48,
       rot: rand(-0.35, 0.35),
       scale: rand(0.9, 1.2),
     });
   }
-
   function spawnSpeedLines(x, y, dcol, drow) {
-    // Lines shoot opposite hop direction
     const ox = -dcol;
     const oy = -drow;
     for (let i = 0; i < 7; i++) {
       const spread = (i - 3) * 5;
       fxList.push({
         kind: "line",
-        x: x + (oy !== 0 ? spread : 0) + (ox !== 0 ? 0 : spread * 0.3),
-        y: y + (ox !== 0 ? spread : 0) + (oy !== 0 ? 0 : spread * 0.3),
-        dx: ox,
-        dy: oy,
+        x: x + (oy !== 0 ? spread : 0),
+        y: y + (ox !== 0 ? spread : 0),
+        dx: ox, dy: oy,
         len: rand(14, 28),
-        life: 10 + i,
-        max: 14,
+        life: 10 + i, max: 14,
         thick: rand(2, 4),
       });
     }
   }
-
   function updateFx() {
     for (const f of fxList) f.life--;
     fxList = fxList.filter((f) => f.life > 0);
   }
-
   function drawFx(kindFilter) {
     for (const f of fxList) {
       if (kindFilter && f.kind !== kindFilter) continue;
@@ -260,7 +415,6 @@
         const sc = f.scale * (0.7 + (1 - t) * 0.55);
         ctx.scale(sc, sc);
         ctx.globalAlpha = Math.min(1, t * 1.4);
-        // Starburst backplate
         ctx.fillStyle = C.yellow;
         setInk(4);
         ctx.beginPath();
@@ -295,14 +449,6 @@
         ctx.moveTo(lx, ly);
         ctx.lineTo(lx + f.dx * f.len, ly + f.dy * f.len);
         ctx.stroke();
-        // ink outline twin
-        ctx.globalAlpha = t * 0.5;
-        setInk(f.thick + 2);
-        ctx.strokeStyle = C.ink;
-        ctx.beginPath();
-        ctx.moveTo(lx, ly);
-        ctx.lineTo(lx + f.dx * f.len * 0.85, ly + f.dy * f.len * 0.85);
-        ctx.stroke();
         ctx.restore();
       }
     }
@@ -310,6 +456,7 @@
     ctx.textBaseline = "alphabetic";
   }
 
+  // ========== CAR ==========
   class Car {
     constructor(row, direction, speed, color, lengthTiles) {
       this.row = row;
@@ -318,59 +465,53 @@
       this.color = color;
       this.length = lengthTiles * TILE;
       this.height = Math.floor(TILE * 0.78);
-      this.x =
-        direction > 0
-          ? -this.length - randInt(0, WIDTH)
-          : WIDTH + randInt(0, WIDTH);
+      this.x = direction > 0 ? -this.length - randInt(0, WIDTH) : WIDTH + randInt(0, WIDTH);
       this.y = row * TILE + (TILE - this.height) / 2;
+      this.whooshed = false;
     }
-
     update() {
       this.x += this.direction * this.speed;
+      // Whoosh when near center of screen
+      const mid = this.x + this.length / 2;
+      if (!this.whooshed && mid > WIDTH * 0.35 && mid < WIDTH * 0.65) {
+        this.whooshed = true;
+        if (Math.random() < 0.35) playCarWhoosh();
+      }
       if (this.direction > 0 && this.x > WIDTH + 20) {
         this.x = -this.length - randInt(40, 200);
+        this.whooshed = false;
       } else if (this.direction < 0 && this.x + this.length < -20) {
         this.x = WIDTH + randInt(40, 200);
+        this.whooshed = false;
       }
     }
-
     rect() {
       return { x: this.x, y: this.y, w: this.length, h: this.height };
     }
-
     draw() {
       const r = this.rect();
       const dir = this.direction;
       const shade = shadeColor(this.color, 0.28);
-
       ctx.globalAlpha = 0.2;
       ctx.fillStyle = C.ink;
       ctx.beginPath();
       ctx.ellipse(r.x + r.w / 2, r.y + r.h + 2, r.w * 0.42, 4, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
-
       celRoundRect(r.x, r.y + 4, r.w, r.h - 4, 10, this.color, shade);
-
       const cabinW = r.w * 0.42;
       const cabinX = dir > 0 ? r.x + r.w * 0.22 : r.x + r.w * 0.36;
       celRoundRect(cabinX, r.y - 2, cabinW, r.h * 0.55, 8, this.color, shade);
-
       const winW = Math.max(10, r.w * 0.18);
       const wx = dir > 0 ? r.x + r.w - winW - 10 : r.x + 10;
       celRoundRect(wx, r.y + 7, winW, r.h - 16, 4, "#9fe0ff", "#4aa3e0");
-
       const hx = dir > 0 ? r.x + r.w - 6 : r.x + 6;
       fillCircle(hx, r.y + r.h * 0.38, 4, C.yellow);
       strokeCircle(hx, r.y + r.h * 0.38, 4, 2);
       fillCircle(hx, r.y + r.h * 0.68, 4, C.yellow);
       strokeCircle(hx, r.y + r.h * 0.68, 4, 2);
-
       const wy = r.y + r.h - 2;
-      [
-        [r.x + 12, wy],
-        [r.x + r.w - 12, wy],
-      ].forEach(([wx2, wy2]) => {
+      [[r.x + 12, wy], [r.x + r.w - 12, wy]].forEach(([wx2, wy2]) => {
         fillCircle(wx2, wy2, 7, C.ink);
         fillCircle(wx2, wy2, 3.5, C.gray);
         strokeCircle(wx2, wy2, 7, 2);
@@ -378,11 +519,11 @@
     }
   }
 
+  // ========== NEW TOAD LOOK ==========
   class Toad {
     constructor() {
       this.reset();
     }
-
     reset() {
       this.col = Math.floor(COLS / 2);
       this.row = 16;
@@ -394,23 +535,22 @@
       this.home = false;
       this.dcol = 0;
       this.drow = 0;
-      // Rubber-hose wobble phase
       this.wobble = 0;
       this.limbPhase = 0;
+      this.celebrate = 0;
+      this.homeX = null;
+      this.homeY = null;
     }
-
     get x() {
-      return this.col * TILE + TILE / 2;
+      return this.homeX != null ? this.homeX : this.col * TILE + TILE / 2;
     }
     get y() {
-      return this.row * TILE + TILE / 2;
+      return this.homeY != null ? this.homeY : this.row * TILE + TILE / 2;
     }
-
     rect() {
       const s = 30;
       return { x: this.x - s / 2, y: this.y - s / 2, w: s, h: s };
     }
-
     tryMove(dcol, drow) {
       if (this.hopTimer > 0 || !this.alive || this.home) return false;
       const nc = this.col + dcol;
@@ -428,15 +568,16 @@
       else if (drow > 0) this.facing = 2;
       else this.facing = 3;
       spawnSpeedLines(this.x, this.y, dcol, drow);
+      playRibbit();
       return true;
     }
-
     update() {
       if (this.hopTimer > 0) {
         this.hopTimer--;
         this.limbPhase += 0.55;
       }
       if (this.squash > 0) this.squash--;
+      if (this.celebrate > 0) this.celebrate++;
       this.wobble += 0.12;
     }
 
@@ -449,6 +590,7 @@
         const pop = Math.sin((this.squash / 40) * Math.PI) * 4;
         celEllipse(cx, cy + 4, 24 + pop, 7, C.greenShade, C.greenDeep);
         celEllipse(cx, cy + 4, 14, 4, C.red, C.redShade);
+        // X eyes + scarf remnant
         setInk(3);
         ctx.beginPath();
         ctx.moveTo(cx - 12, cy - 4);
@@ -463,120 +605,180 @@
         return;
       }
 
-      // Rubber-hose squash / stretch curve
       const hopT = this.hopTimer > 0 ? 1 - this.hopTimer / this.hopMax : 0;
-      // Anticipation → stretch mid-air → land squash
       let stretchY = 1;
       let stretchX = 1;
       if (this.hopTimer > 0) {
         const wave = Math.sin(hopT * Math.PI);
-        stretchY = 1 + 0.55 * wave; // tall mid hop
-        stretchX = 1 - 0.35 * wave; // skinny mid hop
+        stretchY = 1 + 0.55 * wave;
+        stretchX = 1 - 0.35 * wave;
         if (hopT > 0.85) {
-          // landing pancake
           stretchY = 0.55;
           stretchX = 1.45;
         } else if (hopT < 0.15) {
-          // crouch
           stretchY = 0.7;
           stretchX = 1.25;
         }
+      } else if (this.home) {
+        // Victory bounce
+        stretchY = 1 + Math.sin(this.celebrate * 0.25) * 0.12;
+        stretchX = 1 - Math.sin(this.celebrate * 0.25) * 0.06;
       } else {
-        // Idle rubber wobble
         stretchY = 1 + Math.sin(this.wobble) * 0.04;
         stretchX = 1 + Math.cos(this.wobble * 1.3) * 0.03;
       }
 
-      const bodyW = 13 * stretchX;
-      const bodyH = 11 * stretchY;
-      const wobX = Math.sin(this.wobble * 2) * (this.hopTimer > 0 ? 2.5 : 0.8);
+      const bodyW = 14 * stretchX;
+      const bodyH = 12 * stretchY;
+      const wobX = Math.sin(this.wobble * 2) * (this.hopTimer > 0 ? 2.5 : 0.6);
       const limbFlail = this.hopTimer > 0 ? Math.sin(this.limbPhase) * 10 : Math.sin(this.wobble) * 2;
+      const legReach = this.hopTimer > 0 ? 6 + Math.abs(limbFlail) * 0.4 : 0;
 
       // Shadow
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = C.ink;
       ctx.beginPath();
-      ctx.ellipse(cx, cy + 16, bodyW * 0.95, 4 / stretchY, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy + 17, bodyW * 0.95, 4 / stretchY, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      // Extra long rubber legs
-      const legReach = this.hopTimer > 0 ? 6 + Math.abs(limbFlail) * 0.4 : 0;
+      // Big cartoon feet (white gloves style toes)
       if (this.facing === 0 || this.facing === 2) {
-        celCircle(cx - 14 - limbFlail * 0.3, cy + 9 + legReach * 0.3, 7 + legReach * 0.15, C.greenShade, C.greenDeep);
-        celCircle(cx + 14 + limbFlail * 0.3, cy + 9 + legReach * 0.3, 7 + legReach * 0.15, C.greenShade, C.greenDeep);
-        // Stretchy limb connectors
-        setInk(5);
-        ctx.strokeStyle = C.greenShade;
+        // Back legs olive
+        celEllipse(cx - 15 - limbFlail * 0.3, cy + 10 + legReach * 0.25, 9, 6, C.greenShade, C.greenDeep);
+        celEllipse(cx + 15 + limbFlail * 0.3, cy + 10 + legReach * 0.25, 9, 6, C.greenShade, C.greenDeep);
+        // Stretch limbs
+        setInk(6);
+        ctx.strokeStyle = C.olive;
         ctx.beginPath();
-        ctx.moveTo(cx - 6, cy + 4);
-        ctx.quadraticCurveTo(cx - 16 - limbFlail, cy + 2, cx - 14 - limbFlail * 0.3, cy + 9);
-        ctx.moveTo(cx + 6, cy + 4);
-        ctx.quadraticCurveTo(cx + 16 + limbFlail, cy + 2, cx + 14 + limbFlail * 0.3, cy + 9);
+        ctx.moveTo(cx - 5, cy + 5);
+        ctx.quadraticCurveTo(cx - 18 - limbFlail, cy + 4, cx - 15, cy + 10);
+        ctx.moveTo(cx + 5, cy + 5);
+        ctx.quadraticCurveTo(cx + 18 + limbFlail, cy + 4, cx + 15, cy + 10);
         ctx.stroke();
         setInk(3);
         ctx.strokeStyle = C.ink;
         ctx.beginPath();
-        ctx.moveTo(cx - 6, cy + 4);
-        ctx.quadraticCurveTo(cx - 16 - limbFlail, cy + 2, cx - 14 - limbFlail * 0.3, cy + 9);
-        ctx.moveTo(cx + 6, cy + 4);
-        ctx.quadraticCurveTo(cx + 16 + limbFlail, cy + 2, cx + 14 + limbFlail * 0.3, cy + 9);
+        ctx.moveTo(cx - 5, cy + 5);
+        ctx.quadraticCurveTo(cx - 18 - limbFlail, cy + 4, cx - 15, cy + 10);
+        ctx.moveTo(cx + 5, cy + 5);
+        ctx.quadraticCurveTo(cx + 18 + limbFlail, cy + 4, cx + 15, cy + 10);
         ctx.stroke();
-
-        celCircle(cx - 11 + limbFlail * 0.2, cy - 4 - legReach * 0.2, 6, C.green, C.greenShade);
-        celCircle(cx + 11 - limbFlail * 0.2, cy - 4 - legReach * 0.2, 6, C.green, C.greenShade);
+        // White glove hands
+        celCircle(cx - 12 + limbFlail * 0.2, cy - 2 - legReach * 0.15, 6, C.glove, null);
+        celCircle(cx + 12 - limbFlail * 0.2, cy - 2 - legReach * 0.15, 6, C.glove, null);
       } else {
-        celCircle(cx - 2, cy - 14 - limbFlail * 0.2, 6, C.greenShade, C.greenDeep);
-        celCircle(cx - 2, cy + 14 + limbFlail * 0.2, 6, C.greenShade, C.greenDeep);
-        celCircle(cx + 10 + legReach * 0.2, cy - 10, 6, C.green, C.greenShade);
-        celCircle(cx + 10 + legReach * 0.2, cy + 10, 6, C.green, C.greenShade);
+        celEllipse(cx - 2, cy - 14, 6, 8, C.greenShade, C.greenDeep);
+        celEllipse(cx - 2, cy + 14, 6, 8, C.greenShade, C.greenDeep);
+        celCircle(cx + 11, cy - 10, 6, C.glove, null);
+        celCircle(cx + 11, cy + 10, 6, C.glove, null);
       }
 
-      // Body
-      celEllipse(cx + wobX, cy + 2, bodyW, bodyH, C.green, C.greenShade);
-      celEllipse(cx + wobX, cy + 5, bodyW * 0.45, bodyH * 0.4, C.belly, null);
+      // Rounder pear body
+      celEllipse(cx + wobX, cy + 3, bodyW, bodyH, C.olive, C.greenShade);
+      // Gold spots
+      fillCircle(cx + wobX - 6, cy + 1, 3.2, C.spot);
+      fillCircle(cx + wobX + 7, cy + 5, 2.6, C.spot);
+      fillCircle(cx + wobX + 2, cy - 2, 2.2, C.spot);
+      setInk(1.5);
+      strokeCircle(cx + wobX - 6, cy + 1, 3.2, 1.5);
+      strokeCircle(cx + wobX + 7, cy + 5, 2.6, 1.5);
+      // Cream belly
+      celEllipse(cx + wobX, cy + 7, bodyW * 0.5, bodyH * 0.42, C.belly, null);
 
-      // Eyes (lag slightly for rubber feel)
-      const eyeLag = this.hopTimer > 0 ? -this.dcol * 2 + limbFlail * 0.15 : 0;
-      const eyePairs = {
-        0: [
-          [-9, -12],
-          [9, -12],
-        ],
-        1: [
-          [8, -8],
-          [12, 2],
-        ],
-        2: [
-          [-9, 10],
-          [9, 10],
-        ],
-        3: [
-          [-12, -8],
-          [-8, 2],
-        ],
-      }[this.facing];
-
-      for (const [ex, ey] of eyePairs) {
-        const ex2 = cx + ex + eyeLag + wobX;
-        const ey2 = cy + ey - (stretchY - 1) * 6;
-        celCircle(ex2, ey2, 8 + (stretchY - 1) * 2, C.green, C.greenShade);
-        celCircle(ex2, ey2, 5, C.white, null);
-        fillCircle(ex2 + 1 + this.dcol, ey2 + 1 + this.drow, 2.4, C.ink);
-        fillCircle(ex2 + 2, ey2, 0.9, C.white);
-      }
-
+      // Racing scarf
+      ctx.fillStyle = C.scarf;
       setInk(2.5);
       ctx.beginPath();
-      if (this.facing === 0) ctx.arc(cx + wobX, cy + 4, 6 + limbFlail * 0.05, 0.15, Math.PI - 0.15);
-      else if (this.facing === 2) ctx.arc(cx + wobX, cy - 2, 6, Math.PI + 0.2, -0.2);
-      else ctx.arc(cx + (this.facing === 1 ? 2 : -2) + wobX, cy + 4, 5, 0.15, Math.PI - 0.15);
+      ctx.moveTo(cx + wobX - 10, cy - 2);
+      ctx.quadraticCurveTo(cx + wobX, cy + 2, cx + wobX + 10, cy - 2);
+      ctx.quadraticCurveTo(cx + wobX + 12, cy + 6, cx + wobX + 4, cy + 5);
+      ctx.quadraticCurveTo(cx + wobX, cy + 3, cx + wobX - 4, cy + 5);
+      ctx.quadraticCurveTo(cx + wobX - 12, cy + 6, cx + wobX - 10, cy - 2);
+      ctx.fill();
+      ctx.stroke();
+      // Scarf tails flapping
+      const flap = Math.sin(this.wobble * 3 + this.celebrate * 0.2) * 4;
+      ctx.fillStyle = C.scarfShade;
+      ctx.beginPath();
+      ctx.moveTo(cx + wobX + 6, cy + 2);
+      ctx.lineTo(cx + wobX + 18 + flap, cy + 8);
+      ctx.lineTo(cx + wobX + 8, cy + 6);
+      ctx.closePath();
+      ctx.fill();
+      setInk(2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + wobX + 5, cy + 4);
+      ctx.lineTo(cx + wobX + 16 + flap * 0.7, cy + 14);
+      ctx.lineTo(cx + wobX + 6, cy + 7);
+      ctx.closePath();
+      ctx.fill();
       ctx.stroke();
 
-      ctx.globalAlpha = 0.45;
-      fillCircle(cx - bodyW * 0.7 + wobX, cy + 2, 3.5, C.pink);
-      fillCircle(cx + bodyW * 0.7 + wobX, cy + 2, 3.5, C.pink);
+      // Bigger head dome
+      celEllipse(cx + wobX, cy - 8 - (stretchY - 1) * 5, bodyW * 0.85, bodyH * 0.75, C.olive, C.greenShade);
+
+      // Eye stalks — tall classic cartoon
+      const eyeLag = this.hopTimer > 0 ? -this.dcol * 2 : 0;
+      const eyeY = cy - 16 - (stretchY - 1) * 8;
+      const eyes = [
+        [cx + wobX - 9 + eyeLag, eyeY],
+        [cx + wobX + 9 + eyeLag, eyeY],
+      ];
+      for (const [ex, ey] of eyes) {
+        // stalk
+        setInk(4);
+        ctx.strokeStyle = C.olive;
+        ctx.beginPath();
+        ctx.moveTo(cx + wobX, cy - 6);
+        ctx.lineTo(ex, ey + 4);
+        ctx.stroke();
+        setInk(2);
+        ctx.strokeStyle = C.ink;
+        ctx.beginPath();
+        ctx.moveTo(cx + wobX, cy - 6);
+        ctx.lineTo(ex, ey + 4);
+        ctx.stroke();
+        // big round eyes
+        celCircle(ex, ey, 9, C.olive, C.greenShade);
+        celCircle(ex, ey, 6.5, C.white, null);
+        // pupils look in hop direction
+        fillCircle(ex + this.dcol * 1.5, ey + this.drow * 1.5 + 1, 3, C.ink);
+        fillCircle(ex + this.dcol * 1.5 + 1.2, ey + this.drow * 1.5, 1.1, C.white);
+      }
+
+      // Wide grin
+      setInk(2.5);
+      ctx.beginPath();
+      ctx.arc(cx + wobX, cy - 2, 7, 0.15, Math.PI - 0.15);
+      ctx.stroke();
+      // Tiny teeth
+      ctx.fillStyle = C.white;
+      ctx.fillRect(cx + wobX - 3, cy - 1, 2.5, 3);
+      ctx.fillRect(cx + wobX + 1, cy - 1, 2.5, 3);
+      setInk(1.5);
+      ctx.strokeRect(cx + wobX - 3, cy - 1, 2.5, 3);
+      ctx.strokeRect(cx + wobX + 1, cy - 1, 2.5, 3);
+
+      // Blush
+      ctx.globalAlpha = 0.5;
+      fillCircle(cx + wobX - bodyW * 0.65, cy + 1, 3.5, C.pink);
+      fillCircle(cx + wobX + bodyW * 0.65, cy + 1, 3.5, C.pink);
       ctx.globalAlpha = 1;
+
+      // Victory sparkles when home
+      if (this.home) {
+        const sp = this.celebrate;
+        for (let i = 0; i < 5; i++) {
+          const a = sp * 0.15 + i * 1.2;
+          const sx = cx + Math.cos(a) * 28;
+          const sy = cy - 10 + Math.sin(a * 1.3) * 16;
+          ctx.fillStyle = i % 2 ? C.yellow : C.white;
+          ctx.font = "14px sans-serif";
+          ctx.fillText("✦", sx, sy);
+        }
+      }
     }
   }
 
@@ -584,23 +786,25 @@
     return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   }
 
-  // --- Game state ---
-  let state = "title";
+  // ========== STATE ==========
+  let state = "title"; // title | play | madeit | gameover
   let toad = new Toad();
   let cars = [];
   let lives = MAX_LIVES;
   let score = 0;
   let level = 1;
-  let padsCleared = 0; // career pads this run
+  let nextLevel = 2;
+  let padsCleared = 0;
   let farthestRow = 16;
   let message = "";
   let msgTimer = 0;
   let timeLeft = 50;
   let pulse = 0;
-  let levelFlash = 0; // brief green flash on level up
+  let levelFlash = 0;
+  let madeItBonus = 0;
+  let homePadIndex = 0;
 
   function maxTime() {
-    // More time early; still generous later
     return Math.max(28, 55 - level * 1.5);
   }
 
@@ -627,19 +831,24 @@
     toad.reset();
     farthestRow = 16;
     timeLeft = maxTime();
-    fxList = fxList.filter((f) => f.kind === "pow"); // keep celebratory POW briefly
+    fxList = [];
+    startTrafficAmbience();
   }
 
   function squashToad() {
+    if (toad.home || state !== "play") return;
     toad.alive = false;
     toad.squash = 40;
     lives--;
+    playPow();
     spawnPow(toad.x, toad.y - 10, pick(POW_WORDS));
-    // Extra burst
     spawnPow(toad.x + rand(-20, 20), toad.y + rand(-16, 8), pick(["BAM!", "OOF!", "WHAM!"]));
     message = pick(POW_WORDS);
     msgTimer = 40;
-    if (lives <= 0) state = "gameover";
+    if (lives <= 0) {
+      state = "gameover";
+      stopTrafficAmbience();
+    }
   }
 
   function reachHome() {
@@ -652,26 +861,44 @@
       }
     }
     if (pad === null) {
-      // Missed the lily pads → splash death
       squashToad();
       return;
     }
 
-    // Success: score, full lives, next level (faster cars)
-    const bonus = 200 + Math.floor(timeLeft * 10) + level * 50;
-    score += bonus;
+    // Stay on pad — pause for YOU MADE IT!
+    homePadIndex = pad;
+    const padCenterX = 40 + pad * 120 + 32;
+    toad.row = 1;
+    toad.homeX = padCenterX;
+    toad.homeY = 1 * TILE + TILE / 2;
+    toad.home = true;
+    toad.celebrate = 1;
+    toad.facing = 0;
+    toad.hopTimer = 0;
+
+    madeItBonus = 200 + Math.floor(timeLeft * 10) + level * 50;
+    score += madeItBonus;
     padsCleared++;
+    nextLevel = level + 1;
     lives = MAX_LIVES;
-    level++;
-    levelFlash = 30;
-    message = "LEVEL " + level + "!  +" + bonus;
-    msgTimer = 70;
-    spawnPow(toad.x, toad.y - 20, "SAFE!");
-    spawnPow(WIDTH / 2, HEIGHT / 2 - 40, "LEVEL " + level + "!");
+    state = "madeit";
+    playSuccess();
+    stopTrafficAmbience();
+    spawnPow(toad.x, toad.y - 24, "SAFE!");
+  }
+
+  function continueFromPad() {
+    if (state !== "madeit") return;
+    level = nextLevel;
+    levelFlash = 24;
     startLevel();
+    state = "play";
+    message = "LEVEL " + level + "!";
+    msgTimer = 50;
   }
 
   function tryStart() {
+    resumeAudio();
     if (state === "title") {
       lives = MAX_LIVES;
       score = 0;
@@ -683,11 +910,14 @@
       msgTimer = 60;
     } else if (state === "gameover") {
       state = "title";
+    } else if (state === "madeit") {
+      continueFromPad();
     }
   }
 
   function hop(dcol, drow) {
     if (state !== "play" || !toad.alive || toad.home) return;
+    resumeAudio();
     const moved = toad.tryMove(dcol, drow);
     if (moved && drow < 0 && toad.row < farthestRow) {
       score += 10;
@@ -698,11 +928,12 @@
 
   window.addEventListener("keydown", (e) => {
     const k = e.key;
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(k)) {
-      e.preventDefault();
-    }
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(k)) e.preventDefault();
     if (k === "Escape") {
-      if (state === "play") state = "title";
+      if (state === "play" || state === "madeit") {
+        state = "title";
+        stopTrafficAmbience();
+      }
       return;
     }
     if (k === "Enter" || k === " ") {
@@ -718,25 +949,27 @@
   });
 
   document.querySelectorAll("[data-dir]").forEach((btn) => {
-    const send = (e) => {
+    btn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      const d = btn.getAttribute("data-dir");
-      if (state === "title" || state === "gameover") {
+      resumeAudio();
+      if (state === "title" || state === "gameover" || state === "madeit") {
         tryStart();
         return;
       }
+      const d = btn.getAttribute("data-dir");
       if (d === "up") hop(0, -1);
       else if (d === "down") hop(0, 1);
       else if (d === "left") hop(-1, 0);
       else if (d === "right") hop(1, 0);
-    };
-    btn.addEventListener("pointerdown", send);
+    });
   });
 
   canvas.addEventListener("pointerdown", () => {
-    if (state === "title" || state === "gameover") tryStart();
+    resumeAudio();
+    if (state === "title" || state === "gameover" || state === "madeit") tryStart();
   });
 
+  // ========== SCENES ==========
   function drawSkyBand(y, h) {
     ctx.fillStyle = C.skyDeep;
     ctx.fillRect(0, y, WIDTH, h * 0.45);
@@ -764,19 +997,24 @@
         ctx.moveTo(0, y);
         ctx.lineTo(WIDTH, y);
         ctx.stroke();
-
-        // All pads open — any one clears the level
         for (let i = 0; i < 5; i++) {
           const padX = 40 + i * 120;
-          celRoundRect(padX, y + 5, 64, TILE - 10, 12, C.waterDeep, C.water);
+          const occupied = state === "madeit" && i === homePadIndex;
+          celRoundRect(
+            padX, y + 5, 64, TILE - 10, 12,
+            occupied ? C.green : C.waterDeep,
+            occupied ? C.greenShade : C.water
+          );
           setInk(2.5);
           ctx.beginPath();
           ctx.ellipse(padX + 32, y + TILE / 2, 22, 10, 0, 0, Math.PI * 2);
           ctx.stroke();
-          ctx.fillStyle = C.yellow;
-          ctx.font = "bold 16px Nunito, sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText("★", padX + 32, y + TILE / 2 + 6);
+          if (!occupied) {
+            ctx.fillStyle = C.yellow;
+            ctx.font = "bold 16px Nunito, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("★", padX + 32, y + TILE / 2 + 6);
+          }
         }
         ctx.textAlign = "left";
       } else if (MEDIAN_ROWS.has(row)) {
@@ -840,12 +1078,59 @@
 
     ctx.fillStyle = C.hud;
     ctx.fillRect(0, 17 * TILE, WIDTH, HEIGHT - 17 * TILE);
-
     if (levelFlash > 0) {
       ctx.fillStyle = "rgba(120,255,80," + levelFlash / 80 + ")";
       ctx.fillRect(0, TILE, WIDTH, 16 * TILE);
       levelFlash--;
     }
+  }
+
+  function drawMadeItSign() {
+    // Dim overlay
+    ctx.fillStyle = "rgba(20, 30, 50, 0.45)";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    const cx = WIDTH / 2;
+    const cy = HEIGHT / 2 + 20;
+    const w = 420;
+    const h = 220;
+
+    // Wooden sign posts
+    celRoundRect(cx - w / 2 + 30, cy - 20, 18, 140, 4, C.signWoodDark, null);
+    celRoundRect(cx + w / 2 - 48, cy - 20, 18, 140, 4, C.signWoodDark, null);
+
+    // Main sign board
+    celRoundRect(cx - w / 2, cy - h / 2, w, h, 18, C.signWood, C.signWoodDark);
+    // Inner cream panel
+    celRoundRect(cx - w / 2 + 16, cy - h / 2 + 16, w - 32, h - 32, 12, C.cream, null);
+
+    ctx.textAlign = "center";
+    ctx.font = "bold 42px Bangers, Impact, sans-serif";
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = C.ink;
+    ctx.fillStyle = C.green;
+    ctx.strokeText("YOU MADE IT!", cx, cy - 45);
+    ctx.fillText("YOU MADE IT!", cx, cy - 45);
+
+    ctx.font = "bold 28px Bangers, Impact, sans-serif";
+    ctx.fillStyle = C.red;
+    ctx.strokeText("LEVEL " + nextLevel, cx, cy + 5);
+    ctx.fillText("LEVEL " + nextLevel, cx, cy + 5);
+
+    ctx.font = "bold 16px Nunito, sans-serif";
+    ctx.lineWidth = 3;
+    ctx.fillStyle = C.ink;
+    ctx.strokeText("Bonus +" + madeItBonus + "  ·  Lives refilled!", cx, cy + 40);
+    ctx.fillText("Bonus +" + madeItBonus + "  ·  Lives refilled!", cx, cy + 40);
+
+    // Prompt pulse
+    const blink = 0.65 + Math.sin(pulse * 3) * 0.35;
+    ctx.globalAlpha = blink;
+    ctx.font = "bold 15px Nunito, sans-serif";
+    ctx.fillStyle = C.blueShade;
+    ctx.fillText("ENTER / SPACE / TAP  —  start Level " + nextLevel, cx, cy + 78);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "left";
   }
 
   function drawTitle() {
@@ -869,10 +1154,8 @@
     ctx.globalAlpha = 0.3;
     ctx.fillRect(0, HEIGHT * 0.55, WIDTH, HEIGHT * 0.45);
     ctx.globalAlpha = 1;
-
     drawCloud(40, 50, 1.1);
     drawCloud(480, 70, 0.9);
-    drawCloud(280, 40, 0.7);
 
     celRoundRect(40, HEIGHT / 2 - 50, WIDTH - 80, 110, 16, C.road, C.roadShade);
     ctx.fillStyle = C.yellow;
@@ -881,24 +1164,15 @@
       setInk(1.5);
       ctx.strokeRect(x, HEIGHT / 2 + 2, 20, 5);
     }
-
     const demo = [new Car(0, 1, 0, "#ff4b4b", 2), new Car(0, -1, 0, "#4d8fff", 2)];
-    demo[0].x = 90;
-    demo[0].y = HEIGHT / 2 - 40;
-    demo[0].length = 70;
-    demo[0].height = 28;
-    demo[1].x = 420;
-    demo[1].y = HEIGHT / 2 + 18;
-    demo[1].length = 80;
-    demo[1].height = 28;
+    demo[0].x = 90; demo[0].y = HEIGHT / 2 - 40; demo[0].length = 70; demo[0].height = 28;
+    demo[1].x = 420; demo[1].y = HEIGHT / 2 + 18; demo[1].length = 80; demo[1].height = 28;
     demo[0].draw();
     demo[1].draw();
 
     const t = new Toad();
     Object.defineProperty(t, "x", { get: () => WIDTH / 2 });
-    Object.defineProperty(t, "y", {
-      get: () => HEIGHT / 2 + 120 + Math.sin(pulse) * 10,
-    });
+    Object.defineProperty(t, "y", { get: () => HEIGHT / 2 + 120 + Math.sin(pulse) * 10 });
     t.facing = 0;
     t.hopTimer = Math.floor((Math.sin(pulse * 1.5) * 0.5 + 0.5) * 12);
     t.hopMax = 14;
@@ -909,31 +1183,28 @@
 
     ctx.textAlign = "center";
     ctx.font = "bold 52px Bangers, Impact, sans-serif";
-    const title = "TOADZ CROSSER!";
     ctx.lineWidth = 8;
     ctx.strokeStyle = C.ink;
-    ctx.strokeText(title, WIDTH / 2, 100);
-    ctx.fillStyle = C.green;
-    ctx.fillText(title, WIDTH / 2, 100);
+    ctx.strokeText("TOADZ CROSSER!", WIDTH / 2, 100);
+    ctx.fillStyle = C.olive;
+    ctx.fillText("TOADZ CROSSER!", WIDTH / 2, 100);
 
-    ctx.font = "bold 16px Nunito, sans-serif";
+    ctx.font = "bold 15px Nunito, sans-serif";
     ctx.lineWidth = 4;
-    ctx.strokeStyle = C.ink;
     ctx.fillStyle = C.cream;
-    const sub = "One pad = next level · Full lives · Cars get faster!";
-    ctx.strokeText(sub, WIDTH / 2, 145);
-    ctx.fillText(sub, WIDTH / 2, 145);
+    ctx.strokeText("Ribbit · dodge traffic · reach a pad!", WIDTH / 2, 145);
+    ctx.fillText("Ribbit · dodge traffic · reach a pad!", WIDTH / 2, 145);
 
     const tips = [
-      "ARROWS / WASD  —  hop",
-      "Reach ANY ★ pad up top to level up",
-      "Level 1 is easy — then traffic revs up!",
+      "ARROWS / WASD  —  hop (ribbit!)",
+      "Any ★ pad  —  YOU MADE IT! then next level",
+      "Sound on — traffic, hops & POW hits",
       "",
       "ENTER / SPACE / TAP  —  start",
       "ESC  —  menu",
     ];
     tips.forEach((line, i) => {
-      ctx.font = "bold 18px Nunito, sans-serif";
+      ctx.font = "bold 17px Nunito, sans-serif";
       ctx.lineWidth = 4;
       ctx.strokeStyle = C.ink;
       ctx.fillStyle = i >= 4 ? C.yellow : C.white;
@@ -948,12 +1219,11 @@
   function drawHud() {
     ctx.fillStyle = C.hud;
     ctx.fillRect(0, 0, WIDTH, TILE);
-
     ctx.textAlign = "left";
     ctx.font = "bold 22px Bangers, Impact, sans-serif";
     ctx.lineWidth = 4;
     ctx.strokeStyle = C.ink;
-    ctx.fillStyle = C.green;
+    ctx.fillStyle = C.olive;
     ctx.strokeText("TOADZ CROSSER!", 10, 28);
     ctx.fillText("TOADZ CROSSER!", 10, 28);
 
@@ -965,8 +1235,6 @@
     ctx.fillStyle = C.yellow;
     ctx.strokeText("Lv " + level, 340, 26);
     ctx.fillText("Lv " + level, 340, 26);
-
-    // Speed hint
     const mph = Math.round(levelSpeedMult() * 100);
     ctx.font = "bold 12px Nunito, sans-serif";
     ctx.fillStyle = C.orange;
@@ -974,7 +1242,7 @@
     ctx.fillText("SPD " + mph + "%", 400, 26);
 
     for (let i = 0; i < lives; i++) {
-      celCircle(500 + i * 22, 20, 8, C.green, C.greenShade);
+      celCircle(500 + i * 22, 20, 8, C.olive, C.greenShade);
       fillCircle(497 + i * 22, 17, 2.2, C.white);
       fillCircle(503 + i * 22, 17, 2.2, C.white);
     }
@@ -986,7 +1254,6 @@
     if (fill > 0) {
       celRoundRect(24, barY + 3, Math.max(8, fill), 12, 5, tcol, shadeColor(tcol, 0.25));
     }
-
     ctx.font = "bold 13px Nunito, sans-serif";
     ctx.fillStyle = C.white;
     ctx.strokeStyle = C.ink;
@@ -996,11 +1263,15 @@
     ctx.fillText("TIME", 26, barY + 38);
     ctx.textAlign = "right";
     ctx.fillStyle = C.yellow;
-    ctx.strokeText("Any ★ pad = next level + full lives", WIDTH - 22, barY + 38);
-    ctx.fillText("Any ★ pad = next level + full lives", WIDTH - 22, barY + 38);
+    const hint =
+      state === "madeit"
+        ? "ENTER / SPACE — next level"
+        : "★ pad = YOU MADE IT!";
+    ctx.strokeText(hint, WIDTH - 22, barY + 38);
+    ctx.fillText(hint, WIDTH - 22, barY + 38);
     ctx.textAlign = "left";
 
-    if (msgTimer > 0 && message) {
+    if (msgTimer > 0 && message && state === "play") {
       ctx.textAlign = "center";
       ctx.font = "bold 34px Bangers, Impact, sans-serif";
       ctx.lineWidth = 8;
@@ -1053,7 +1324,7 @@
         timeLeft = maxTime();
         farthestRow = 16;
       }
-      if (toad.alive) {
+      if (toad.alive && !toad.home) {
         timeLeft -= dt;
         if (timeLeft <= 0) {
           timeLeft = 0;
@@ -1061,7 +1332,7 @@
         }
       }
       for (const car of cars) car.update();
-      if (toad.alive && toad.squash <= 0 && ROAD_ROW_SET.has(toad.row)) {
+      if (toad.alive && toad.squash <= 0 && !toad.home && ROAD_ROW_SET.has(toad.row)) {
         const tr = toad.rect();
         for (const car of cars) {
           if (car.row === toad.row && rectsOverlap(tr, car.rect())) {
@@ -1071,17 +1342,27 @@
         }
       }
       if (msgTimer > 0) msgTimer--;
+    } else if (state === "madeit") {
+      toad.update();
+      updateFx();
+      // Cars freeze while celebrating
     } else {
       updateFx();
     }
 
     drawBackground();
-    for (const car of cars) car.draw();
-    drawFx("line"); // speed lines behind toad
+    if (state !== "madeit") {
+      for (const car of cars) car.draw();
+    } else {
+      // Still show frozen traffic under the sign
+      for (const car of cars) car.draw();
+    }
+    drawFx("line");
     toad.draw();
-    drawFx("pow"); // POW! starbursts on top
+    drawFx("pow");
     drawHud();
 
+    if (state === "madeit") drawMadeItSign();
     if (state === "gameover") drawOverlay();
 
     requestAnimationFrame(frame);
