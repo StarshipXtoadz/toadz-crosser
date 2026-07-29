@@ -69,17 +69,24 @@
   }
 
   function drawSprite(img, x, y, w, h, flipX) {
+    // Pixel-align to reduce shimmer while moving
+    const px = Math.round(x);
+    const py = Math.round(y);
+    const dw = Math.max(1, Math.round(w));
+    const dh = Math.max(1, Math.round(h));
     ctx.save();
-    ctx.translate(x, y);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.translate(px, py);
     if (flipX) ctx.scale(-1, 1);
     // Soft contact shadow
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = "#000";
     ctx.beginPath();
-    ctx.ellipse(0, h * 0.42, w * 0.38, h * 0.08, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, dh * 0.42, dw * 0.38, Math.max(2, dh * 0.08), 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
     ctx.restore();
   }
 
@@ -560,8 +567,10 @@
     draw() {
       if (hasAsset(this.spriteKey)) {
         const r = this.rect();
-        const flip = this.direction < 0;
-        // Sprites face right; flip when going left
+        // Cars face right; truck art faces left — invert truck flip
+        const flip = this.isTruck
+          ? this.direction > 0
+          : this.direction < 0;
         const w = r.w * 1.05;
         const h = this.isTruck ? r.h * 1.35 : r.h * 1.45;
         drawSprite(
@@ -783,42 +792,33 @@
         return;
       }
 
-      // Painted 3D toad sprite
+      // Painted 3D toad sprite — solid draw, mild bob only (no scale flicker)
       if (hasAsset("toad")) {
         const hopT = this.hopTimer > 0 ? 1 - this.hopTimer / this.hopMax : 0;
-        let stretchY = 1;
-        let stretchX = 1;
         let bob = 0;
         if (this.hopTimer > 0) {
           const wave = Math.sin(hopT * Math.PI);
-          stretchY = 1 + 0.28 * wave;
-          stretchX = 1 - 0.18 * wave;
-          bob = -10 * wave;
-          if (hopT > 0.85) {
-            stretchY = 0.72;
-            stretchX = 1.22;
-            bob = 2;
-          }
+          bob = -Math.round(8 * wave);
         } else if (this.home) {
-          stretchY = 1 + Math.sin(this.celebrate * 0.25) * 0.08;
-          bob = Math.sin(this.celebrate * 0.25) * 3;
-        } else {
-          stretchY = 1 + Math.sin(this.wobble) * 0.03;
+          bob = Math.round(Math.sin(this.celebrate * 0.25) * 3);
         }
         const flip = this.facing === 3;
-        const base = 54;
+        const base = 56;
+        const dx = Math.round(cx);
+        const dy = Math.round(cy + bob + 4);
         ctx.save();
-        ctx.translate(cx, cy + bob + 4);
-        // Contact shadow
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.translate(dx, dy);
+        // Contact shadow (stable)
         ctx.globalAlpha = 0.25;
         ctx.fillStyle = "#000";
         ctx.beginPath();
-        ctx.ellipse(0, 22, 18 * stretchX, 5, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 22, 18, 5, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         if (flip) ctx.scale(-1, 1);
-        ctx.scale(stretchX, stretchY);
-        if (this.hopTimer > 0) ctx.rotate(this.dcol * 0.08);
+        // Fixed size — no per-frame scale stretch (that caused flashing)
         ctx.drawImage(ASSETS.toad, -base / 2, -base / 2 - 6, base, base);
         ctx.restore();
         if (this.home) {
@@ -1455,17 +1455,19 @@
       setInk(1.5);
       ctx.strokeRect(x, roadTop + roadH / 2 - 3, 20, 5);
     }
-    const demo = [new Car(0, 1, 0, "#ff4b4b", 2), new Car(0, -1, 0, "#4d8fff", 3)];
+    const demo = [new Car(0, 1, 0, "#ff4b4b", 2), new Car(0, 1, 0, "#4d8fff", 3)];
     demo[0].x = 90;
     demo[0].y = roadTop + 18;
     demo[0].length = 70;
     demo[0].height = 28;
     demo[0].isTruck = false;
-    demo[1].x = 380;
-    demo[1].y = roadTop + 48;
+    demo[0].spriteKey = "car_red";
+    demo[1].x = 360;
+    demo[1].y = roadTop + 42;
     demo[1].length = 110;
     demo[1].height = 34;
     demo[1].isTruck = true;
+    demo[1].spriteKey = "truck_blue";
     demo[0].draw();
     demo[1].draw();
 
