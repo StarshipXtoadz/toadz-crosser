@@ -10,7 +10,8 @@
   const ctx = canvas.getContext("2d");
 
   const WIDTH = 640;
-  const HEIGHT = 720;
+  // Extra room under the playfield so the timer bar + labels aren't clipped
+  const HEIGHT = 780;
   const TILE = 40;
   const COLS = WIDTH / TILE;
   const INK = "#1a1208";
@@ -1076,8 +1077,16 @@
       }
     }
 
+    // Bottom HUD panel (taller so TIME label + hints fit below the bar)
+    const hudTop = 17 * TILE;
     ctx.fillStyle = C.hud;
-    ctx.fillRect(0, 17 * TILE, WIDTH, HEIGHT - 17 * TILE);
+    ctx.fillRect(0, hudTop, WIDTH, HEIGHT - hudTop);
+    // Subtle top edge of bottom panel
+    setInk(3);
+    ctx.beginPath();
+    ctx.moveTo(0, hudTop);
+    ctx.lineTo(WIDTH, hudTop);
+    ctx.stroke();
     if (levelFlash > 0) {
       ctx.fillStyle = "rgba(120,255,80," + levelFlash / 80 + ")";
       ctx.fillRect(0, TILE, WIDTH, 16 * TILE);
@@ -1247,28 +1256,30 @@
       fillCircle(503 + i * 22, 17, 2.2, C.white);
     }
 
-    const barY = 17 * TILE + 10;
-    celRoundRect(20, barY, WIDTH - 40, 18, 8, C.roadShade, null);
+    // Bottom panel: bar + labels (canvas is tall enough that nothing is clipped)
+    const barY = 17 * TILE + 16;
+    celRoundRect(20, barY, WIDTH - 40, 22, 10, C.roadShade, null);
     const fill = Math.floor((WIDTH - 48) * (timeLeft / maxTime()));
     const tcol = timeLeft > 15 ? C.green : timeLeft > 7 ? C.yellow : C.red;
     if (fill > 0) {
-      celRoundRect(24, barY + 3, Math.max(8, fill), 12, 5, tcol, shadeColor(tcol, 0.25));
+      celRoundRect(24, barY + 4, Math.max(8, fill), 14, 6, tcol, shadeColor(tcol, 0.25));
     }
-    ctx.font = "bold 13px Nunito, sans-serif";
+    const labelY = barY + 48;
+    ctx.font = "bold 15px Nunito, sans-serif";
     ctx.fillStyle = C.white;
     ctx.strokeStyle = C.ink;
     ctx.lineWidth = 3;
     ctx.textAlign = "left";
-    ctx.strokeText("TIME", 26, barY + 38);
-    ctx.fillText("TIME", 26, barY + 38);
+    ctx.strokeText("TIME", 26, labelY);
+    ctx.fillText("TIME", 26, labelY);
     ctx.textAlign = "right";
     ctx.fillStyle = C.yellow;
     const hint =
       state === "madeit"
         ? "ENTER / SPACE — next level"
         : "★ pad = YOU MADE IT!";
-    ctx.strokeText(hint, WIDTH - 22, barY + 38);
-    ctx.fillText(hint, WIDTH - 22, barY + 38);
+    ctx.strokeText(hint, WIDTH - 22, labelY);
+    ctx.fillText(hint, WIDTH - 22, labelY);
     ctx.textAlign = "left";
 
     if (msgTimer > 0 && message && state === "play") {
