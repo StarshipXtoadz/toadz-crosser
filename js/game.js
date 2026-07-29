@@ -249,8 +249,9 @@
     fxList = fxList.filter((f) => f.life > 0);
   }
 
-  function drawFx() {
+  function drawFx(kindFilter) {
     for (const f of fxList) {
+      if (kindFilter && f.kind !== kindFilter) continue;
       const t = f.life / f.max;
       if (f.kind === "pow") {
         ctx.save();
@@ -1076,11 +1077,9 @@
 
     drawBackground();
     for (const car of cars) car.draw();
-    // Speed lines under toad, POW on top
-    drawFx();
+    drawFx("line"); // speed lines behind toad
     toad.draw();
-    // Redraw POW above toad so starbursts read on top
-    drawFx();
+    drawFx("pow"); // POW! starbursts on top
     drawHud();
 
     if (state === "gameover") drawOverlay();
