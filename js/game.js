@@ -22,6 +22,67 @@
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
 
+  // Hand-painted stylized 3D sprites
+  const ASSET_URLS = {
+    toad: "assets/toad.png",
+    car_red: "assets/car_red.png",
+    car_blue: "assets/car_blue.png",
+    car_yellow: "assets/car_yellow.png",
+    truck_blue: "assets/truck_blue.png",
+    truck_red: "assets/truck_red.png",
+    lily: "assets/lily.png",
+  };
+  const ASSETS = {};
+  let assetsReady = false;
+  let assetsFailed = false;
+
+  function loadAssets(done) {
+    const keys = Object.keys(ASSET_URLS);
+    let left = keys.length;
+    if (!left) {
+      done();
+      return;
+    }
+    keys.forEach((k) => {
+      const img = new Image();
+      img.onload = () => {
+        ASSETS[k] = img;
+        left--;
+        if (left === 0) {
+          assetsReady = true;
+          done();
+        }
+      };
+      img.onerror = () => {
+        left--;
+        if (left === 0) {
+          assetsFailed = true;
+          done();
+        }
+      };
+      img.src = ASSET_URLS[k];
+    });
+  }
+
+  function hasAsset(k) {
+    return ASSETS[k] && ASSETS[k].complete && ASSETS[k].naturalWidth > 0;
+  }
+
+  function drawSprite(img, x, y, w, h, flipX) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (flipX) ctx.scale(-1, 1);
+    // Soft contact shadow
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.ellipse(0, h * 0.42, w * 0.38, h * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+
   // Toad palette — bright apple-green frog, freckles, pale belly
   const C = {
     ink: INK,
@@ -471,6 +532,12 @@
       this.x = direction > 0 ? -this.length - randInt(0, WIDTH) : WIDTH + randInt(0, WIDTH);
       this.y = row * TILE + (TILE - this.height) / 2;
       this.whooshed = false;
+      // Painted sprite pick (side-view faces right)
+      if (this.isTruck) {
+        this.spriteKey = pick(["truck_blue", "truck_red"]);
+      } else {
+        this.spriteKey = pick(["car_red", "car_blue", "car_yellow"]);
+      }
     }
     update() {
       this.x += this.direction * this.speed;
@@ -491,6 +558,22 @@
       return { x: this.x, y: this.y, w: this.length, h: this.height };
     }
     draw() {
+      if (hasAsset(this.spriteKey)) {
+        const r = this.rect();
+        const flip = this.direction < 0;
+        // Sprites face right; flip when going left
+        const w = r.w * 1.05;
+        const h = this.isTruck ? r.h * 1.35 : r.h * 1.45;
+        drawSprite(
+          ASSETS[this.spriteKey],
+          r.x + r.w / 2,
+          r.y + r.h / 2 - (this.isTruck ? 4 : 2),
+          w,
+          h,
+          flip
+        );
+        return;
+      }
       if (this.isTruck) this.drawTruck();
       else this.drawSedan();
     }
@@ -675,8 +758,17 @@
 
       if (this.squash > 0) {
         const pop = Math.sin((this.squash / 40) * Math.PI) * 4;
-        celEllipse(cx, cy + 4, 22 + pop, 8, C.greenShade, C.greenDeep);
-        celEllipse(cx, cy + 4, 12, 4, C.red, C.redShade);
+        if (hasAsset("toad")) {
+          ctx.save();
+          ctx.translate(cx, cy + 6);
+          ctx.scale(1.35 + pop * 0.02, 0.35);
+          ctx.globalAlpha = 0.95;
+          ctx.drawImage(ASSETS.toad, -28, -28, 56, 56);
+          ctx.restore();
+        } else {
+          celEllipse(cx, cy + 4, 22 + pop, 8, C.greenShade, C.greenDeep);
+          celEllipse(cx, cy + 4, 12, 4, C.red, C.redShade);
+        }
         setInk(3);
         ctx.beginPath();
         ctx.moveTo(cx - 10, cy - 2);
@@ -688,6 +780,56 @@
         ctx.moveTo(cx + 10, cy - 2);
         ctx.lineTo(cx + 4, cy + 4);
         ctx.stroke();
+        return;
+      }
+
+      // Painted 3D toad sprite
+      if (hasAsset("toad")) {
+        const hopT = this.hopTimer > 0 ? 1 - this.hopTimer / this.hopMax : 0;
+        let stretchY = 1;
+        let stretchX = 1;
+        let bob = 0;
+        if (this.hopTimer > 0) {
+          const wave = Math.sin(hopT * Math.PI);
+          stretchY = 1 + 0.28 * wave;
+          stretchX = 1 - 0.18 * wave;
+          bob = -10 * wave;
+          if (hopT > 0.85) {
+            stretchY = 0.72;
+            stretchX = 1.22;
+            bob = 2;
+          }
+        } else if (this.home) {
+          stretchY = 1 + Math.sin(this.celebrate * 0.25) * 0.08;
+          bob = Math.sin(this.celebrate * 0.25) * 3;
+        } else {
+          stretchY = 1 + Math.sin(this.wobble) * 0.03;
+        }
+        const flip = this.facing === 3;
+        const base = 54;
+        ctx.save();
+        ctx.translate(cx, cy + bob + 4);
+        // Contact shadow
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.ellipse(0, 22, 18 * stretchX, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        if (flip) ctx.scale(-1, 1);
+        ctx.scale(stretchX, stretchY);
+        if (this.hopTimer > 0) ctx.rotate(this.dcol * 0.08);
+        ctx.drawImage(ASSETS.toad, -base / 2, -base / 2 - 6, base, base);
+        ctx.restore();
+        if (this.home) {
+          const sp = this.celebrate;
+          for (let i = 0; i < 5; i++) {
+            const a = sp * 0.15 + i * 1.2;
+            ctx.fillStyle = i % 2 ? C.yellow : C.white;
+            ctx.font = "14px sans-serif";
+            ctx.fillText("✦", cx + Math.cos(a) * 26, cy - 12 + Math.sin(a * 1.3) * 14);
+          }
+        }
         return;
       }
 
@@ -1108,20 +1250,33 @@
         for (let i = 0; i < 5; i++) {
           const padX = 40 + i * 120;
           const occupied = state === "madeit" && i === homePadIndex;
-          celRoundRect(
-            padX, y + 5, 64, TILE - 10, 12,
-            occupied ? C.green : C.waterDeep,
-            occupied ? C.greenShade : C.water
-          );
-          setInk(2.5);
+          // Water pool under pad
+          ctx.fillStyle = occupied ? "rgba(80,200,100,0.35)" : "rgba(30,100,160,0.45)";
           ctx.beginPath();
-          ctx.ellipse(padX + 32, y + TILE / 2, 22, 10, 0, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.ellipse(padX + 32, y + TILE / 2 + 4, 30, 12, 0, 0, Math.PI * 2);
+          ctx.fill();
+          if (hasAsset("lily")) {
+            ctx.drawImage(ASSETS.lily, padX + 2, y + 2, 60, 36);
+            if (occupied) {
+              ctx.globalAlpha = 0.35;
+              ctx.fillStyle = C.yellow;
+              ctx.beginPath();
+              ctx.ellipse(padX + 32, y + TILE / 2, 28, 14, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.globalAlpha = 1;
+            }
+          } else {
+            celRoundRect(
+              padX, y + 5, 64, TILE - 10, 12,
+              occupied ? C.green : C.waterDeep,
+              occupied ? C.greenShade : C.water
+            );
+          }
           if (!occupied) {
             ctx.fillStyle = C.yellow;
-            ctx.font = "bold 16px Nunito, sans-serif";
+            ctx.font = "bold 14px Nunito, sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText("★", padX + 32, y + TILE / 2 + 6);
+            ctx.fillText("★", padX + 32, y + TILE / 2 + 5);
           }
         }
         ctx.textAlign = "left";
@@ -1166,20 +1321,28 @@
         setInk(2.5);
         ctx.strokeRect(0, y, WIDTH, 6);
       } else if (ROAD_ROW_SET.has(row)) {
-        ctx.fillStyle = C.road;
+        // Painterly asphalt: soft vertical shading
+        const g = ctx.createLinearGradient(0, y, 0, y + TILE);
+        g.addColorStop(0, "#6a6a74");
+        g.addColorStop(0.45, "#4e4e58");
+        g.addColorStop(1, "#3a3a44");
+        ctx.fillStyle = g;
         ctx.fillRect(0, y, WIDTH, TILE);
-        ctx.fillStyle = C.roadShade;
-        ctx.globalAlpha = 0.35;
-        ctx.fillRect(0, y + TILE * 0.65, WIDTH, TILE * 0.35);
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = C.asphaltLine;
+        // Soft painted edge highlight
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        ctx.fillRect(0, y + 2, WIDTH, 3);
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(0, y + TILE - 6, WIDTH, 6);
+        // Dashed center
+        ctx.fillStyle = "rgba(255, 220, 70, 0.85)";
         for (let x = 0; x < WIDTH; x += 28) {
-          ctx.fillRect(x, y + TILE - 5, 16, 4);
-          setInk(1.5);
-          ctx.strokeRect(x, y + TILE - 5, 16, 4);
+          ctx.fillRect(x, y + TILE - 6, 14, 3);
         }
       } else {
-        ctx.fillStyle = C.grass;
+        const g = ctx.createLinearGradient(0, y, 0, y + TILE);
+        g.addColorStop(0, "#6ed95a");
+        g.addColorStop(1, "#3aa832");
+        ctx.fillStyle = g;
         ctx.fillRect(0, y, WIDTH, TILE);
       }
     }
@@ -1441,7 +1604,22 @@
 
   let last = performance.now();
 
+  function drawLoading() {
+    ctx.fillStyle = "#1a2a40";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.textAlign = "center";
+    ctx.font = "bold 28px Bangers, Impact, sans-serif";
+    ctx.fillStyle = "#8fd45a";
+    ctx.fillText("Loading painted world…", WIDTH / 2, HEIGHT / 2);
+    ctx.textAlign = "left";
+  }
+
   function frame(now) {
+    if (!assetsReady && !assetsFailed) {
+      drawLoading();
+      requestAnimationFrame(frame);
+      return;
+    }
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     pulse += dt * 4;
@@ -1504,5 +1682,7 @@
     requestAnimationFrame(frame);
   }
 
-  requestAnimationFrame(frame);
+  loadAssets(() => {
+    requestAnimationFrame(frame);
+  });
 })();

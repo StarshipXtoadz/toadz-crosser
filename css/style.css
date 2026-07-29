@@ -50,8 +50,10 @@ body {
   align-items: center;
   position: relative;
   overflow-x: hidden;
+  /* Soft painted sky → meadow */
   background:
-    linear-gradient(180deg, #9fd8ff 0%, #7ec8f5 38%, #b8e8a0 38%, #7ed957 100%);
+    radial-gradient(ellipse 120% 60% at 50% 0%, #fff6d0 0%, transparent 55%),
+    linear-gradient(180deg, #6eb8f0 0%, #8fd0ff 32%, #a8e090 32%, #5cb84a 100%);
 }
 
 /* Soft cartoon cloud blobs */
@@ -117,10 +119,11 @@ body {
 }
 
 .toad-icon {
-  width: 88px;
-  height: 88px;
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
   animation: hop 1.15s ease-in-out infinite;
-  filter: drop-shadow(3px 4px 0 rgba(26, 18, 8, 0.25));
+  filter: drop-shadow(0 8px 12px rgba(26, 18, 8, 0.35));
 }
 
 @keyframes hop {
