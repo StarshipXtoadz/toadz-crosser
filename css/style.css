@@ -165,7 +165,7 @@ h1 {
   height: 88px;
   width: 100%;
   max-width: 520px;
-  margin: 0 auto 1.75rem;
+  margin: 0 auto 2.25rem;
   background: var(--road);
   border: 4px solid var(--ink);
   border-radius: 16px;
@@ -320,11 +320,13 @@ h1 {
   gap: 1rem;
   width: 100%;
   max-width: 640px;
-  margin: 1.75rem auto 0;
+  /* Keep how-to cards clearly below the road strip */
+  margin: 2.5rem auto 0;
   padding: 0 1.25rem 1rem;
   text-align: left;
   position: relative;
   z-index: 1;
+  clear: both;
 }
 
 .card {

@@ -726,46 +726,122 @@
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      // Webbed back feet
+      // Webbed back feet (behind body)
       if (this.facing === 0 || this.facing === 2) {
-        // Left foot
-        celEllipse(cx - 12 + limbFlail * 0.2, cy + 11, 8, 5, C.greenShade, C.greenDeep);
-        // toes
-        fillCircle(cx - 18 + limbFlail * 0.2, cy + 12, 2.5, C.greenShade);
-        fillCircle(cx - 14 + limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
-        fillCircle(cx - 10 + limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
+        celEllipse(cx - 12 + limbFlail * 0.2, cy + 12, 8, 5, C.greenShade, C.greenDeep);
+        fillCircle(cx - 18 + limbFlail * 0.2, cy + 13, 2.5, C.greenShade);
+        fillCircle(cx - 14 + limbFlail * 0.2, cy + 15, 2.5, C.greenShade);
+        fillCircle(cx - 10 + limbFlail * 0.2, cy + 15, 2.5, C.greenShade);
         setInk(1.5);
-        strokeCircle(cx - 18 + limbFlail * 0.2, cy + 12, 2.5, 1.5);
-        strokeCircle(cx - 14 + limbFlail * 0.2, cy + 14, 2.5, 1.5);
-        strokeCircle(cx - 10 + limbFlail * 0.2, cy + 14, 2.5, 1.5);
-        // Right foot
-        celEllipse(cx + 12 - limbFlail * 0.2, cy + 11, 8, 5, C.greenShade, C.greenDeep);
-        fillCircle(cx + 18 - limbFlail * 0.2, cy + 12, 2.5, C.greenShade);
-        fillCircle(cx + 14 - limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
-        fillCircle(cx + 10 - limbFlail * 0.2, cy + 14, 2.5, C.greenShade);
-        strokeCircle(cx + 18 - limbFlail * 0.2, cy + 12, 2.5, 1.5);
-        strokeCircle(cx + 14 - limbFlail * 0.2, cy + 14, 2.5, 1.5);
-        strokeCircle(cx + 10 - limbFlail * 0.2, cy + 14, 2.5, 1.5);
-        // Front hands (small pads)
-        celEllipse(cx - 10, cy + 2 - limbFlail * 0.1, 5, 4, C.green, C.greenShade);
-        celEllipse(cx + 10, cy + 2 - limbFlail * 0.1, 5, 4, C.green, C.greenShade);
+        strokeCircle(cx - 18 + limbFlail * 0.2, cy + 13, 2.5, 1.5);
+        strokeCircle(cx - 14 + limbFlail * 0.2, cy + 15, 2.5, 1.5);
+        strokeCircle(cx - 10 + limbFlail * 0.2, cy + 15, 2.5, 1.5);
+        celEllipse(cx + 12 - limbFlail * 0.2, cy + 12, 8, 5, C.greenShade, C.greenDeep);
+        fillCircle(cx + 18 - limbFlail * 0.2, cy + 13, 2.5, C.greenShade);
+        fillCircle(cx + 14 - limbFlail * 0.2, cy + 15, 2.5, C.greenShade);
+        fillCircle(cx + 10 - limbFlail * 0.2, cy + 15, 2.5, C.greenShade);
+        strokeCircle(cx + 18 - limbFlail * 0.2, cy + 13, 2.5, 1.5);
+        strokeCircle(cx + 14 - limbFlail * 0.2, cy + 15, 2.5, 1.5);
+        strokeCircle(cx + 10 - limbFlail * 0.2, cy + 15, 2.5, 1.5);
       } else {
         celEllipse(cx - 2, cy - 12, 5, 7, C.greenShade, C.greenDeep);
         celEllipse(cx - 2, cy + 12, 5, 7, C.greenShade, C.greenDeep);
-        celEllipse(cx + 10, cy - 8, 5, 4, C.green, C.greenShade);
-        celEllipse(cx + 10, cy + 8, 5, 4, C.green, C.greenShade);
       }
 
-      // Round apple body
+      // —— Clear cartoon ARMS (drawn before body so shoulders tuck in) ——
+      const armWave = limbFlail;
+      if (this.facing === 0 || this.facing === 2) {
+        // Left arm: shoulder → elbow → hand
+        const lShoulder = { x: cx + wobX - bodyW * 0.75, y: cy - 1 };
+        const lHand = {
+          x: cx + wobX - bodyW * 1.35 - armWave * 0.4,
+          y: cy + 2 + armWave * 0.35,
+        };
+        const lElbow = {
+          x: (lShoulder.x + lHand.x) / 2 - 4,
+          y: (lShoulder.y + lHand.y) / 2 + 3,
+        };
+        setInk(7);
+        ctx.strokeStyle = C.olive;
+        ctx.beginPath();
+        ctx.moveTo(lShoulder.x, lShoulder.y);
+        ctx.quadraticCurveTo(lElbow.x, lElbow.y, lHand.x, lHand.y);
+        ctx.stroke();
+        setInk(3);
+        ctx.strokeStyle = C.ink;
+        ctx.beginPath();
+        ctx.moveTo(lShoulder.x, lShoulder.y);
+        ctx.quadraticCurveTo(lElbow.x, lElbow.y, lHand.x, lHand.y);
+        ctx.stroke();
+        // Hand + fingers
+        celCircle(lHand.x, lHand.y, 6, C.olive, C.greenShade);
+        fillCircle(lHand.x - 5, lHand.y - 2, 2.2, C.olive);
+        fillCircle(lHand.x - 5, lHand.y + 2, 2.2, C.olive);
+        fillCircle(lHand.x - 3, lHand.y + 5, 2.2, C.olive);
+        setInk(1.5);
+        strokeCircle(lHand.x - 5, lHand.y - 2, 2.2, 1.5);
+        strokeCircle(lHand.x - 5, lHand.y + 2, 2.2, 1.5);
+        strokeCircle(lHand.x - 3, lHand.y + 5, 2.2, 1.5);
+
+        // Right arm
+        const rShoulder = { x: cx + wobX + bodyW * 0.75, y: cy - 1 };
+        const rHand = {
+          x: cx + wobX + bodyW * 1.35 + armWave * 0.4,
+          y: cy + 2 - armWave * 0.35,
+        };
+        const rElbow = {
+          x: (rShoulder.x + rHand.x) / 2 + 4,
+          y: (rShoulder.y + rHand.y) / 2 + 3,
+        };
+        setInk(7);
+        ctx.strokeStyle = C.olive;
+        ctx.beginPath();
+        ctx.moveTo(rShoulder.x, rShoulder.y);
+        ctx.quadraticCurveTo(rElbow.x, rElbow.y, rHand.x, rHand.y);
+        ctx.stroke();
+        setInk(3);
+        ctx.strokeStyle = C.ink;
+        ctx.beginPath();
+        ctx.moveTo(rShoulder.x, rShoulder.y);
+        ctx.quadraticCurveTo(rElbow.x, rElbow.y, rHand.x, rHand.y);
+        ctx.stroke();
+        celCircle(rHand.x, rHand.y, 6, C.olive, C.greenShade);
+        fillCircle(rHand.x + 5, rHand.y - 2, 2.2, C.olive);
+        fillCircle(rHand.x + 5, rHand.y + 2, 2.2, C.olive);
+        fillCircle(rHand.x + 3, rHand.y + 5, 2.2, C.olive);
+        strokeCircle(rHand.x + 5, rHand.y - 2, 2.2, 1.5);
+        strokeCircle(rHand.x + 5, rHand.y + 2, 2.2, 1.5);
+        strokeCircle(rHand.x + 3, rHand.y + 5, 2.2, 1.5);
+      } else {
+        // Side view arms
+        setInk(7);
+        ctx.strokeStyle = C.olive;
+        ctx.beginPath();
+        ctx.moveTo(cx + 4, cy - 2);
+        ctx.quadraticCurveTo(cx + 16, cy - 8 - armWave, cx + 20, cy - 2);
+        ctx.moveTo(cx + 4, cy + 4);
+        ctx.quadraticCurveTo(cx + 16, cy + 10 + armWave, cx + 20, cy + 6);
+        ctx.stroke();
+        setInk(3);
+        ctx.strokeStyle = C.ink;
+        ctx.beginPath();
+        ctx.moveTo(cx + 4, cy - 2);
+        ctx.quadraticCurveTo(cx + 16, cy - 8 - armWave, cx + 20, cy - 2);
+        ctx.moveTo(cx + 4, cy + 4);
+        ctx.quadraticCurveTo(cx + 16, cy + 10 + armWave, cx + 20, cy + 6);
+        ctx.stroke();
+        celCircle(cx + 20, cy - 2, 5.5, C.olive, C.greenShade);
+        celCircle(cx + 20, cy + 6, 5.5, C.olive, C.greenShade);
+      }
+
+      // Round apple body (on top of arm shoulders)
       celEllipse(cx + wobX, cy + 1, bodyW, bodyH, C.olive, C.greenShade);
-      // Dark freckle spots
       fillCircle(cx + wobX - 5, cy - 1, 2.2, C.spot);
       fillCircle(cx + wobX + 6, cy + 3, 1.8, C.spot);
       fillCircle(cx + wobX + 1, cy + 6, 1.5, C.spot);
-      // Pale belly oval
       celEllipse(cx + wobX, cy + 5, bodyW * 0.48, bodyH * 0.4, C.belly, null);
 
-      // Head blob fused with body (no stalks) — face sits on upper body
+      // Head
       const headY = cy - 6 - (stretchY - 1) * 4;
       celEllipse(cx + wobX, headY, bodyW * 0.78, bodyH * 0.62, C.olive, C.greenShade);
 
@@ -1174,45 +1250,67 @@
   }
 
   function drawTitle() {
-    drawSkyBand(0, HEIGHT * 0.42);
-    ctx.fillStyle = C.grass;
-    ctx.beginPath();
-    ctx.moveTo(0, HEIGHT * 0.4);
-    ctx.quadraticCurveTo(WIDTH * 0.25, HEIGHT * 0.32, WIDTH * 0.5, HEIGHT * 0.4);
-    ctx.quadraticCurveTo(WIDTH * 0.75, HEIGHT * 0.48, WIDTH, HEIGHT * 0.38);
-    ctx.lineTo(WIDTH, HEIGHT);
-    ctx.lineTo(0, HEIGHT);
-    ctx.closePath();
-    ctx.fill();
-    setInk(4);
-    ctx.beginPath();
-    ctx.moveTo(0, HEIGHT * 0.4);
-    ctx.quadraticCurveTo(WIDTH * 0.25, HEIGHT * 0.32, WIDTH * 0.5, HEIGHT * 0.4);
-    ctx.quadraticCurveTo(WIDTH * 0.75, HEIGHT * 0.48, WIDTH, HEIGHT * 0.38);
-    ctx.stroke();
-    ctx.fillStyle = C.grassShade;
-    ctx.globalAlpha = 0.3;
-    ctx.fillRect(0, HEIGHT * 0.55, WIDTH, HEIGHT * 0.45);
-    ctx.globalAlpha = 1;
-    drawCloud(40, 50, 1.1);
-    drawCloud(480, 70, 0.9);
+    // Layout (top → bottom): title · road scene · toad · ALL instructions below road
+    const roadTop = 200;
+    const roadH = 100;
+    const roadBottom = roadTop + roadH;
 
-    celRoundRect(40, HEIGHT / 2 - 50, WIDTH - 80, 110, 16, C.road, C.roadShade);
+    // Sky band only above the road
+    drawSkyBand(0, roadTop + 20);
+    drawCloud(40, 48, 1.0);
+    drawCloud(480, 58, 0.85);
+
+    // Grass from mid-road down
+    ctx.fillStyle = C.grass;
+    ctx.fillRect(0, roadTop + 40, WIDTH, HEIGHT - (roadTop + 40));
+    ctx.fillStyle = C.grassShade;
+    ctx.globalAlpha = 0.28;
+    ctx.fillRect(0, roadBottom + 20, WIDTH, HEIGHT - roadBottom - 20);
+    ctx.globalAlpha = 1;
+
+    // Title (above road)
+    ctx.textAlign = "center";
+    ctx.font = "bold 48px Bangers, Impact, sans-serif";
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = C.ink;
+    ctx.strokeText("TOADZ CROSSER!", WIDTH / 2, 70);
+    ctx.fillStyle = C.olive;
+    ctx.fillText("TOADZ CROSSER!", WIDTH / 2, 70);
+
+    ctx.font = "600 14px Nunito, sans-serif";
+    const sub = "Ribbit · dodge traffic · reach a pad!";
+    const tw = ctx.measureText(sub).width + 24;
+    celRoundRect(WIDTH / 2 - tw / 2, 88, tw, 26, 10, C.cream, null);
+    ctx.fillStyle = C.signText;
+    ctx.fillText(sub, WIDTH / 2, 106);
+
+    // Road strip (no text on top of it)
+    celRoundRect(36, roadTop, WIDTH - 72, roadH, 16, C.road, C.roadShade);
     ctx.fillStyle = C.yellow;
-    for (let x = 60; x < WIDTH - 60; x += 36) {
-      ctx.fillRect(x, HEIGHT / 2 + 2, 20, 5);
+    for (let x = 56; x < WIDTH - 56; x += 36) {
+      ctx.fillRect(x, roadTop + roadH / 2 - 3, 20, 5);
       setInk(1.5);
-      ctx.strokeRect(x, HEIGHT / 2 + 2, 20, 5);
+      ctx.strokeRect(x, roadTop + roadH / 2 - 3, 20, 5);
     }
-    const demo = [new Car(0, 1, 0, "#ff4b4b", 2), new Car(0, -1, 0, "#4d8fff", 2)];
-    demo[0].x = 90; demo[0].y = HEIGHT / 2 - 40; demo[0].length = 70; demo[0].height = 28;
-    demo[1].x = 420; demo[1].y = HEIGHT / 2 + 18; demo[1].length = 80; demo[1].height = 28;
+    const demo = [new Car(0, 1, 0, "#ff4b4b", 2), new Car(0, -1, 0, "#4d8fff", 3)];
+    demo[0].x = 90;
+    demo[0].y = roadTop + 18;
+    demo[0].length = 70;
+    demo[0].height = 28;
+    demo[0].isTruck = false;
+    demo[1].x = 380;
+    demo[1].y = roadTop + 48;
+    demo[1].length = 110;
+    demo[1].height = 34;
+    demo[1].isTruck = true;
     demo[0].draw();
     demo[1].draw();
 
+    // Toad below the road (not covering instructions)
     const t = new Toad();
+    const toadY = roadBottom + 70 + Math.sin(pulse) * 8;
     Object.defineProperty(t, "x", { get: () => WIDTH / 2 });
-    Object.defineProperty(t, "y", { get: () => HEIGHT / 2 + 120 + Math.sin(pulse) * 10 });
+    Object.defineProperty(t, "y", { get: () => toadY });
     t.facing = 0;
     t.hopTimer = Math.floor((Math.sin(pulse * 1.5) * 0.5 + 0.5) * 12);
     t.hopMax = 14;
@@ -1221,41 +1319,33 @@
     t.wobble = pulse * 2;
     t.draw();
 
-    ctx.textAlign = "center";
-    ctx.font = "bold 52px Bangers, Impact, sans-serif";
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = C.ink;
-    ctx.strokeText("TOADZ CROSSER!", WIDTH / 2, 100);
-    ctx.fillStyle = C.olive;
-    ctx.fillText("TOADZ CROSSER!", WIDTH / 2, 100);
+    // Instruction card — fully BELOW road + toad
+    const panelTop = roadBottom + 130;
+    const panelH = 280;
+    celRoundRect(48, panelTop, WIDTH - 96, panelH, 18, C.cream, null);
 
-    ctx.font = "600 15px Nunito, sans-serif";
-    ctx.lineWidth = 0;
-    ctx.fillStyle = C.signText;
-    // Soft cream plate behind subtitle for contrast
-    const sub = "Ribbit · dodge traffic · reach a pad!";
-    const tw = ctx.measureText(sub).width + 24;
-    celRoundRect(WIDTH / 2 - tw / 2, 128, tw, 28, 10, C.cream, null);
-    ctx.fillStyle = C.signText;
-    ctx.fillText(sub, WIDTH / 2, 147);
+    ctx.font = "bold 20px Bangers, Impact, sans-serif";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = C.ink;
+    ctx.fillStyle = C.red;
+    ctx.strokeText("HOW TO PLAY", WIDTH / 2, panelTop + 36);
+    ctx.fillText("HOW TO PLAY", WIDTH / 2, panelTop + 36);
 
     const tips = [
       "ARROWS / WASD  —  hop (ribbit!)",
       "Any ★ pad  —  YOU MADE IT! then next level",
       "Sound on — traffic, hops & POW hits",
+      "Level 1 is slow — traffic speeds up each pad",
       "",
       "ENTER / SPACE / TAP  —  start",
       "ESC  —  menu",
     ];
     tips.forEach((line, i) => {
-      ctx.font = "bold 17px Nunito, sans-serif";
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = C.ink;
-      ctx.fillStyle = i >= 4 ? C.yellow : C.white;
-      if (line) {
-        ctx.strokeText(line, WIDTH / 2, 430 + i * 28);
-        ctx.fillText(line, WIDTH / 2, 430 + i * 28);
-      }
+      if (!line) return;
+      ctx.font = "600 16px Nunito, sans-serif";
+      ctx.lineWidth = 0;
+      ctx.fillStyle = i >= 5 ? C.blueShade : C.signText;
+      ctx.fillText(line, WIDTH / 2, panelTop + 72 + i * 26);
     });
     ctx.textAlign = "left";
   }
